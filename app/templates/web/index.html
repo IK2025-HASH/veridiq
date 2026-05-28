@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Verid-iq — AI-Assisted Test Intelligence by Network Logic</title>
+  <meta name="description" content="Verid-iq accelerates your testing workflow by drafting professional test artifacts for your review. You stay in control — AI does the drafting, you do the thinking." />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy:   '#0D1B3E',
+            teal:   '#00B5AD',
+            purple: '#6B3FA0',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    .output-content { font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; line-height: 1.7; }
+
+    /* Typing cursor animation */
+    .cursor::after {
+      content: '▋';
+      animation: blink 1s step-end infinite;
+      color: #00B5AD;
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    /* Gradient border on active card */
+    .type-card.active {
+      border: 2px solid #00B5AD;
+      background: rgba(0,181,173,0.08);
+    }
+    .type-card {
+      border: 2px solid transparent;
+      transition: all 0.2s ease;
+    }
+    .type-card:hover {
+      border-color: rgba(0,181,173,0.4);
+      background: rgba(0,181,173,0.04);
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #1a2a4a; }
+    ::-webkit-scrollbar-thumb { background: #00B5AD; border-radius: 3px; }
+
+    /* Prose output styling */
+    .prose-output h1, .prose-output h2 { color: #00B5AD; margin-top: 1.2em; margin-bottom: 0.4em; font-weight: 600; }
+    .prose-output h3 { color: #a78bfa; margin-top: 1em; margin-bottom: 0.3em; font-weight: 500; }
+    .prose-output table { width: 100%; border-collapse: collapse; margin: 0.8em 0; font-size: 0.8rem; }
+    .prose-output th { background: rgba(0,181,173,0.2); padding: 6px 10px; text-align: left; color: #00B5AD; }
+    .prose-output td { padding: 5px 10px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+    .prose-output tr:hover td { background: rgba(255,255,255,0.03); }
+    .prose-output code { background: rgba(0,181,173,0.15); padding: 2px 6px; border-radius: 3px; font-size: 0.8rem; }
+    .prose-output pre { background: rgba(0,0,0,0.4); border: 1px solid rgba(0,181,173,0.2); border-radius: 6px; padding: 12px; overflow-x: auto; margin: 0.8em 0; }
+    .prose-output pre code { background: none; padding: 0; }
+    .prose-output ul, .prose-output ol { padding-left: 1.4em; margin: 0.4em 0; }
+    .prose-output li { margin: 0.2em 0; }
+    .prose-output strong { color: #e2e8f0; }
+    .prose-output hr { border-color: rgba(0,181,173,0.2); margin: 1.2em 0; }
+    .prose-output blockquote { border-left: 3px solid #00B5AD; padding-left: 12px; color: #94a3b8; font-style: italic; }
+  </style>
+</head>
+
+<body class="bg-navy text-slate-200 min-h-screen">
+
+  <!-- ── HEADER ───────────────────────────────────────────────────────────── -->
+  <header class="border-b border-slate-700/50 bg-navy/95 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <span class="text-2xl font-bold tracking-tight">
+          <span class="text-white">Verid</span><span class="text-teal">-iq</span>
+        </span>
+        <span class="text-slate-500 text-sm hidden sm:block">AI Test Intelligence</span>
+      </div>
+      <div class="flex items-center gap-4">
+        <!-- Floating credit dashboard -->
+        <div id="credit-widget" class="relative group cursor-pointer">
+          <div class="flex items-center gap-2 bg-slate-800/80 border border-slate-600/50 hover:border-teal/40 rounded-lg px-3 py-2 transition-all">
+            <span class="text-teal text-sm">⚡</span>
+            <div class="text-right">
+              <div class="text-white font-bold text-sm leading-none" id="credit-count">50</div>
+              <div class="text-slate-500 text-xs leading-none mt-0.5">credits</div>
+            </div>
+            <!-- Mini progress bar -->
+            <div class="w-12 h-1.5 bg-slate-700 rounded-full overflow-hidden ml-1">
+              <div id="credit-bar" class="h-full bg-teal rounded-full transition-all" style="width:100%"></div>
+            </div>
+          </div>
+          <!-- Hover tooltip -->
+          <div class="absolute right-0 top-full mt-2 w-56 bg-slate-800 border border-slate-600/50 rounded-lg p-3 shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+            <div class="text-xs text-slate-400 mb-2 font-medium">Credit Balance</div>
+            <div class="flex justify-between text-xs mb-1">
+              <span class="text-slate-400">Remaining</span>
+              <span class="text-white font-bold" id="credit-count-detail">50</span>
+            </div>
+            <div class="flex justify-between text-xs mb-1">
+              <span class="text-slate-400">Tier</span>
+              <span class="text-teal" id="credit-tier">Free</span>
+            </div>
+            <div class="flex justify-between text-xs mb-3">
+              <span class="text-slate-400">Used today</span>
+              <span class="text-slate-300" id="credit-used-today">0</span>
+            </div>
+            <div class="text-xs text-slate-500 border-t border-slate-700 pt-2">
+              Layer 1 hit: 0 credits · Layer 2: 1 credit · Layer 3: 3–10 credits
+            </div>
+            <a href="#" class="block mt-2 text-center text-xs font-semibold text-teal hover:underline">Top up credits →</a>
+          </div>
+        </div>
+        <span class="text-xs text-slate-500">by</span>
+        <span class="text-sm font-semibold text-teal tracking-wide">Network Logic</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── HERO ─────────────────────────────────────────────────────────────── -->
+  <section class="max-w-4xl mx-auto px-6 pt-16 pb-8 text-center">
+    <div class="inline-flex items-center gap-2 bg-teal/10 border border-teal/30 rounded-full px-4 py-1.5 text-xs text-teal mb-6">
+      <span class="w-1.5 h-1.5 bg-teal rounded-full animate-pulse"></span>
+      Early Access — Free to use
+    </div>
+    <h1 class="text-4xl sm:text-5xl font-bold text-white mb-4 leading-tight">
+      AI drafts. You review.<br/>
+      <span class="text-teal">Your expertise, accelerated.</span>
+    </h1>
+    <p class="text-slate-400 text-lg max-w-2xl mx-auto">
+      Verid-iq removes the repetitive drafting work from your testing workflow.
+      Paste your user story — get a professional first draft of test cases, BDD scenarios,
+      or defect reports in seconds. You review, refine, and approve. Always.
+    </p>
+
+    <!-- Human in the loop trust strip -->
+    <div class="flex flex-wrap justify-center gap-6 mt-8 text-xs text-slate-500">
+      <span class="flex items-center gap-1.5"><span class="text-teal">✓</span> AI drafts the artifact</span>
+      <span class="flex items-center gap-1.5"><span class="text-teal">✓</span> You review and refine</span>
+      <span class="flex items-center gap-1.5"><span class="text-teal">✓</span> You approve before use</span>
+      <span class="flex items-center gap-1.5"><span class="text-teal">✓</span> Your expertise shapes every output</span>
+    </div>
+  </section>
+
+  <!-- ── MAIN APP ──────────────────────────────────────────────────────────── -->
+  <main class="max-w-7xl mx-auto px-6 pb-20">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+      <!-- LEFT: INPUT PANEL -->
+      <div class="space-y-6">
+
+        <!-- Generation Type Selector -->
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-3">
+            What do you want to generate?
+          </label>
+          <div class="grid grid-cols-2 gap-2" id="type-grid">
+            {% for gt in generation_types %}
+            <button
+              class="type-card rounded-lg p-3 text-left bg-slate-800/60 cursor-pointer"
+              data-key="{{ gt.key }}"
+              data-supports-quantity="{{ gt.supports_quantity | lower }}"
+              onclick="selectType(this)"
+            >
+              <div class="flex items-center gap-2">
+                <span class="text-xl">{{ gt.icon }}</span>
+                <span class="text-xs font-medium text-slate-200 leading-tight">{{ gt.label }}</span>
+              </div>
+            </button>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Quantity (shown only for batch types) -->
+        <div id="quantity-row" class="hidden">
+          <label class="block text-sm font-medium text-slate-300 mb-2">
+            How many? <span class="text-slate-500 font-normal">(1–20)</span>
+          </label>
+          <div class="flex items-center gap-3">
+            <button onclick="adjustQty(-1)" class="w-8 h-8 rounded bg-slate-700 hover:bg-teal/30 text-white font-bold transition-colors">−</button>
+            <span id="qty-display" class="text-2xl font-bold text-teal w-8 text-center">3</span>
+            <button onclick="adjustQty(1)" class="w-8 h-8 rounded bg-slate-700 hover:bg-teal/30 text-white font-bold transition-colors">+</button>
+            <input type="hidden" id="quantity" value="3" />
+          </div>
+        </div>
+
+        <!-- Input text area -->
+        <div>
+          <label class="block text-sm font-medium text-slate-300 mb-2">
+            Your user story / acceptance criteria
+            <span class="text-slate-500 font-normal">— paste it here</span>
+          </label>
+          <textarea
+            id="input-text"
+            rows="10"
+            placeholder="As a registered user, I want to log in with my email and password so that I can access my account.
+
+Acceptance Criteria:
+- Given valid credentials, the user is redirected to the dashboard
+- Given invalid credentials, an error message is displayed
+- Account locks after 5 failed attempts
+- Password input is masked"
+            class="w-full bg-slate-800/60 border border-slate-600/50 rounded-lg p-4 text-sm text-slate-200 placeholder-slate-600 resize-none focus:outline-none focus:border-teal/50 focus:ring-1 focus:ring-teal/30 transition-colors"
+          ></textarea>
+          <div class="flex justify-between mt-1">
+            <span id="char-count" class="text-xs text-slate-600">0 / 5000 characters</span>
+            <span class="text-xs text-slate-600">5 free generations per day</span>
+          </div>
+        </div>
+
+        <!-- Generate button -->
+        <button
+          id="generate-btn"
+          onclick="generate()"
+          class="w-full py-4 bg-teal hover:bg-teal/80 disabled:bg-slate-700 disabled:cursor-not-allowed text-navy font-bold rounded-lg transition-all text-sm tracking-wide"
+        >
+          Generate ↗
+        </button>
+
+        <!-- Error message -->
+        <div id="error-msg" class="hidden bg-red-900/30 border border-red-500/30 rounded-lg p-3 text-sm text-red-300"></div>
+
+      </div>
+
+      <!-- RIGHT: OUTPUT PANEL -->
+      <div>
+        <div class="flex items-center justify-between mb-3">
+          <label class="text-sm font-medium text-slate-300">Output</label>
+          <div class="flex items-center gap-2">
+            <!-- Layer indicator — shows which layer answered -->
+            <span id="layer-badge" class="hidden text-xs px-2 py-0.5 rounded-full border"></span>
+            <div id="output-actions" style="display:none!important" class="flex items-center gap-2">
+              <button onclick="copyOutput()" class="text-xs text-slate-400 hover:text-teal transition-colors px-3 py-1 rounded border border-slate-700 hover:border-teal/40">Copy</button>
+              <button onclick="downloadOutput()" class="text-xs text-slate-400 hover:text-teal transition-colors px-3 py-1 rounded border border-slate-700 hover:border-teal/40">Download .md</button>
+            </div>
+          </div>
+        </div>
+
+        <div
+          id="output-panel"
+          class="bg-slate-900/80 border border-slate-700/50 rounded-lg p-5 min-h-96 max-h-[700px] overflow-y-auto"
+        >
+          <!-- Empty state -->
+          <div id="empty-state" class="flex flex-col items-center justify-center h-80 text-center">
+            <div class="text-5xl mb-4">🧪</div>
+            <p class="text-slate-500 text-sm">Select a generation type, paste your story,<br/>and hit Generate.</p>
+            <p class="text-slate-600 text-xs mt-3">Grounded in ISTQB standards · BDD-aware · Built for Jira</p>
+          </div>
+
+          <!-- Streaming output -->
+          <div id="output-content" class="hidden prose-output output-content text-slate-300 whitespace-pre-wrap"></div>
+
+          <!-- Loading state -->
+          <div id="loading-state" class="hidden flex flex-col items-center justify-center h-80 text-center">
+            <div class="text-4xl mb-4 animate-pulse">⚡</div>
+            <p class="text-teal text-sm font-medium cursor" id="loading-label">Generating</p>
+            <p class="text-slate-600 text-xs mt-2">Applying testing domain knowledge...</p>
+          </div>
+        </div>
+
+        <!-- Review reminder -->
+        <div id="review-reminder" class="hidden mt-3 bg-teal/5 border border-teal/20 rounded-lg p-3 text-xs text-slate-400">
+          <span class="text-teal font-medium">👤 Your turn.</span>
+          Review the draft above, edit anything that needs your expertise, and approve before use.
+        </div>
+
+        <!-- Jira CTA -->
+        <div class="mt-4 bg-purple/10 border border-purple/30 rounded-lg p-4 text-center">
+          <p class="text-xs text-slate-400 mb-1">Want this inside Jira — draft, review, and push to Xray in one place?</p>
+          <a href="#" class="text-xs font-semibold text-teal hover:underline">
+            Verid-iq for Jira — coming to Atlassian Marketplace →
+          </a>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- ── FOOTER ───────────────────────────────────────────────────────────── -->
+  <footer class="border-t border-slate-800 py-8">
+    <div class="max-w-7xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-600">
+      <span>© 2026 Network Logic Limited · All rights reserved</span>
+      <span>Verid-iq is a registered trade mark of Network Logic Limited</span>
+      <div class="flex gap-4">
+        <a href="/terms" class="hover:text-slate-400">Terms</a>
+        <a href="/privacy" class="hover:text-slate-400">Privacy</a>
+        <a href="https://networklogic.uk" target="_blank" class="hover:text-slate-400">networklogic.uk</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ── JAVASCRIPT ────────────────────────────────────────────────────────── -->
+  <script>
+    let selectedType = null;
+    let quantity = 3;
+    let fullOutput = '';
+    let isGenerating = false;
+    let creditBalance = 50;
+    let creditMax = 50;
+
+    function updateCreditWidget(balance, used_today = 0, tier = 'Free', max = 50) {
+      creditBalance = balance;
+      creditMax = max;
+      document.getElementById('credit-count').textContent = balance;
+      document.getElementById('credit-count-detail').textContent = balance;
+      document.getElementById('credit-tier').textContent = tier;
+      document.getElementById('credit-used-today').textContent = used_today;
+      const pct = Math.max(0, Math.min(100, (balance / max) * 100));
+      const bar = document.getElementById('credit-bar');
+      bar.style.width = pct + '%';
+      bar.className = 'h-full rounded-full transition-all ' +
+        (pct > 50 ? 'bg-teal' : pct > 20 ? 'bg-amber-400' : 'bg-red-400');
+    }
+
+    // Select first type by default
+    window.addEventListener('DOMContentLoaded', () => {
+      const first = document.querySelector('.type-card');
+      if (first) selectType(first);
+
+      const textarea = document.getElementById('input-text');
+      textarea.addEventListener('input', () => {
+        document.getElementById('char-count').textContent =
+          `${textarea.value.length} / 5000 characters`;
+      });
+    });
+
+    function selectType(btn) {
+      document.querySelectorAll('.type-card').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedType = btn.dataset.key;
+      const supportsQty = btn.dataset.supportsQuantity === 'true';
+      document.getElementById('quantity-row').classList.toggle('hidden', !supportsQty);
+    }
+
+    function adjustQty(delta) {
+      quantity = Math.min(20, Math.max(1, quantity + delta));
+      document.getElementById('qty-display').textContent = quantity;
+      document.getElementById('quantity').value = quantity;
+    }
+
+    function showLoading(label) {
+      document.getElementById('empty-state').classList.add('hidden');
+      document.getElementById('output-content').classList.add('hidden');
+      document.getElementById('loading-state').classList.remove('hidden');
+      document.getElementById('loading-label').textContent = label;
+    }
+
+    function showOutput(text, layer = 'layer3', creditsCharged = 0) {
+      document.getElementById('loading-state').classList.add('hidden');
+      document.getElementById('empty-state').classList.add('hidden');
+      const content = document.getElementById('output-content');
+      content.classList.remove('hidden');
+      content.innerHTML = renderMarkdown(text);
+      document.getElementById('review-reminder').classList.remove('hidden');
+
+      // Layer badge
+      const badge = document.getElementById('layer-badge');
+      badge.classList.remove('hidden');
+      const layerConfig = {
+        layer1: { label: '⚡ From your context · 0 credits', cls: 'text-teal border-teal/30 bg-teal/10' },
+        layer2: { label: '🧠 From platform knowledge · 1 credit', cls: 'text-purple-300 border-purple-400/30 bg-purple-900/20' },
+        layer3: { label: `🤖 AI generated · ${creditsCharged} credits`, cls: 'text-slate-300 border-slate-600 bg-slate-800' },
+      };
+      const cfg = layerConfig[layer] || layerConfig.layer3;
+      badge.textContent = cfg.label;
+      badge.className = `text-xs px-2 py-0.5 rounded-full border ${cfg.cls}`;
+
+      // Deduct credits from widget
+      if (creditsCharged > 0) {
+        updateCreditWidget(Math.max(0, creditBalance - creditsCharged));
+      }
+
+      // Show action buttons
+      const actions = document.getElementById('output-actions');
+      actions.style.removeProperty('display');
+    }
+
+    // Lightweight markdown renderer
+    function renderMarkdown(text) {
+      return text
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/`{3}gherkin\n([\s\S]*?)`{3}/g, '<pre><code>$1</code></pre>')
+        .replace(/`{3}\n?([\s\S]*?)`{3}/g, '<pre><code>$1</code></pre>')
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        .replace(/^\| (.+)$/gm, (match, content) => {
+          const cells = content.split(' | ');
+          return '<tr>' + cells.map(c => `<td>${c}</td>`).join('') + '</tr>';
+        })
+        .replace(/(<tr>.*<\/tr>\n?)+/g, m => `<table>${m}</table>`)
+        .replace(/^---$/gm, '<hr/>')
+        .replace(/^- (.+)$/gm, '<li>$1</li>')
+        .replace(/(<li>.*<\/li>\n?)+/g, m => `<ul>${m}</ul>`)
+        .replace(/\n\n/g, '<br/><br/>');
+    }
+
+    async function generate() {
+      if (isGenerating) return;
+      if (!selectedType) {
+        showError('Please select a generation type.');
+        return;
+      }
+      const inputText = document.getElementById('input-text').value.trim();
+      if (inputText.length < 10) {
+        showError('Please enter at least 10 characters describing what to test.');
+        return;
+      }
+
+      hideError();
+      isGenerating = true;
+      fullOutput = '';
+      const btn = document.getElementById('generate-btn');
+      btn.textContent = 'Generating...';
+      btn.disabled = true;
+
+      showLoading('Generating');
+
+      try {
+        const response = await fetch('/api/generate/stream', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            generation_type: selectedType,
+            input_text: inputText,
+            quantity: parseInt(document.getElementById('quantity').value || '1'),
+          }),
+        });
+
+        if (!response.ok) {
+          if (response.status === 429) {
+            showError('Daily limit reached (5 generations/day). Come back tomorrow or install the full Jira app.');
+          } else {
+            showError(`Server error (${response.status}). Please try again.`);
+          }
+          resetBtn();
+          return;
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let firstChunk = true;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
+
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              if (data === '[DONE]') {
+                showOutput(fullOutput);
+                break;
+              }
+              if (data.startsWith('[ERROR]')) {
+                showError(data.replace('[ERROR] ', ''));
+                break;
+              }
+              // Unescape newlines
+              const chunk = data.replace(/\\n/g, '\n');
+              fullOutput += chunk;
+
+              if (firstChunk) {
+                firstChunk = false;
+                document.getElementById('loading-state').classList.add('hidden');
+                const content = document.getElementById('output-content');
+                content.classList.remove('hidden');
+              }
+              // Live render during streaming
+              document.getElementById('output-content').innerHTML =
+                renderMarkdown(fullOutput) + '<span class="cursor"></span>';
+            }
+          }
+        }
+
+      } catch (err) {
+        showError('Connection error. Please check your internet and try again.');
+        console.error(err);
+      } finally {
+        resetBtn();
+      }
+    }
+
+    function resetBtn() {
+      isGenerating = false;
+      const btn = document.getElementById('generate-btn');
+      btn.textContent = 'Generate ↗';
+      btn.disabled = false;
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('error-msg');
+      el.textContent = msg;
+      el.classList.remove('hidden');
+      document.getElementById('loading-state').classList.add('hidden');
+      if (!fullOutput) document.getElementById('empty-state').classList.remove('hidden');
+    }
+
+    function hideError() {
+      document.getElementById('error-msg').classList.add('hidden');
+    }
+
+    function copyOutput() {
+      navigator.clipboard.writeText(fullOutput).then(() => {
+        const btn = event.target;
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = 'Copy', 2000);
+      });
+    }
+
+    function downloadOutput() {
+      const blob = new Blob([fullOutput], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `veridiq-${selectedType?.toLowerCase()}-${Date.now()}.md`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  </script>
+
+</body>
+</html>

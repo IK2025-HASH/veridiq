@@ -1,0 +1,36 @@
+# Copyright © 2026 Network Logic Limited. All rights reserved.
+
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.orm import DeclarativeBase
+from app.config import settings
+
+engine = create_async_engine(
+    settings.DATABASE_URL,
+    echo=settings.ENVIRONMENT == "development",
+    pool_pre_ping=True,
+)
+
+AsyncSessionLocal = async_sessionmaker(
+    engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+)
+
+class Base(DeclarativeBase):
+    pass
+
+async def get_db():
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+
+async def create_tables():
+    async with engine.begin() as conn:
+        from app.models import generation, artifact
+        await conn.run_sync(Base.metadata.create_all)

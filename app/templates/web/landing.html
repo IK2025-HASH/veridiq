@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Verid-iq — AI-Assisted Test Intelligence by Network Logic</title>
+<meta name="description" content="Verid-iq accelerates software testing teams. AI drafts. You review. Your expertise, amplified."/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --navy:   #060f24;
+  --navy2:  #0d1b3e;
+  --teal:   #00c9c0;
+  --teal2:  #00b5ad;
+  --purple: #7c3aed;
+  --purple2:#a855f7;
+  --amber:  #f59e0b;
+  --white:  #f0f4ff;
+  --muted:  #6b7fa3;
+  --border: rgba(0,201,192,.12);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+html{scroll-behavior:smooth;}
+body{
+  background:var(--navy);
+  color:var(--white);
+  font-family:'DM Sans',sans-serif;
+  overflow-x:hidden;
+  cursor:none;
+}
+
+/* ── CUSTOM CURSOR ─────────────────────────────────────────── */
+.cursor{position:fixed;pointer-events:none;z-index:9999;mix-blend-mode:difference;}
+.cursor-dot{width:8px;height:8px;background:var(--teal);border-radius:50%;transform:translate(-50%,-50%);transition:transform .1s;}
+.cursor-ring{width:36px;height:36px;border:1px solid rgba(0,201,192,.5);border-radius:50%;transform:translate(-50%,-50%);transition:transform .15s,width .2s,height .2s,opacity .2s;}
+body:hover .cursor-dot{transform:translate(-50%,-50%) scale(1);}
+a:hover ~ .cursor .cursor-ring,button:hover ~ .cursor .cursor-ring{width:56px;height:56px;opacity:.6;}
+
+/* ── NOISE OVERLAY ─────────────────────────────────────────── */
+body::before{
+  content:'';position:fixed;inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events:none;z-index:1;opacity:.4;
+}
+
+/* ── GRID BACKGROUND ───────────────────────────────────────── */
+.grid-bg{
+  position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:
+    linear-gradient(rgba(0,201,192,.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,201,192,.04) 1px, transparent 1px);
+  background-size:60px 60px;
+  mask-image:radial-gradient(ellipse 80% 80% at 50% 0%, black 30%, transparent 100%);
+}
+
+/* ── GLOW ORBS ─────────────────────────────────────────────── */
+.orb{position:fixed;border-radius:50%;filter:blur(100px);pointer-events:none;z-index:0;}
+.orb1{width:600px;height:600px;background:radial-gradient(circle, rgba(0,201,192,.12), transparent 70%);top:-200px;left:-100px;animation:drift1 20s ease-in-out infinite;}
+.orb2{width:500px;height:500px;background:radial-gradient(circle, rgba(124,58,237,.10), transparent 70%);bottom:-100px;right:-100px;animation:drift2 25s ease-in-out infinite;}
+.orb3{width:300px;height:300px;background:radial-gradient(circle, rgba(0,201,192,.08), transparent 70%);top:50%;left:50%;transform:translate(-50%,-50%);animation:drift3 15s ease-in-out infinite;}
+
+@keyframes drift1{0%,100%{transform:translate(0,0) scale(1);}50%{transform:translate(80px,60px) scale(1.1);}}
+@keyframes drift2{0%,100%{transform:translate(0,0);}50%{transform:translate(-60px,-40px) scale(1.08);}}
+@keyframes drift3{0%,100%{transform:translate(-50%,-50%) scale(1);}50%{transform:translate(-50%,-55%) scale(1.15);}}
+
+/* ── LAYOUT ────────────────────────────────────────────────── */
+section{position:relative;z-index:2;}
+.container{max-width:1200px;margin:0 auto;padding:0 32px;}
+
+/* ── NAV ───────────────────────────────────────────────────── */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  padding:20px 40px;
+  display:flex;align-items:center;justify-content:space-between;
+  background:linear-gradient(to bottom, rgba(6,15,36,.9), transparent);
+  backdrop-filter:blur(12px);
+  border-bottom:1px solid rgba(0,201,192,.06);
+  animation:fadeDown .8s ease forwards;
+}
+.logo{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;letter-spacing:-.5px;}
+.logo span:first-child{color:var(--white);}
+.logo span:last-child{color:var(--teal);}
+.nav-links{display:flex;align-items:center;gap:32px;}
+.nav-links a{font-size:13px;color:var(--muted);text-decoration:none;transition:color .2s;font-weight:500;letter-spacing:.3px;}
+.nav-links a:hover{color:var(--teal);}
+.nav-cta{
+  background:var(--teal);color:var(--navy);
+  padding:10px 22px;border-radius:8px;
+  font-size:13px;font-weight:700;
+  text-decoration:none;letter-spacing:.3px;
+  transition:all .2s;
+  position:relative;overflow:hidden;
+}
+.nav-cta::after{content:'';position:absolute;inset:0;background:white;opacity:0;transition:opacity .2s;}
+.nav-cta:hover::after{opacity:.1;}
+
+@keyframes fadeDown{from{opacity:0;transform:translateY(-20px);}to{opacity:1;transform:translateY(0);}}
+
+/* ── HERO ──────────────────────────────────────────────────── */
+.hero{
+  min-height:100vh;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;
+  text-align:center;padding:120px 32px 80px;
+  position:relative;
+}
+.hero-badge{
+  display:inline-flex;align-items:center;gap:8px;
+  background:rgba(0,201,192,.08);border:1px solid rgba(0,201,192,.2);
+  border-radius:100px;padding:6px 16px;
+  font-size:12px;color:var(--teal);font-family:'DM Mono',monospace;
+  margin-bottom:32px;
+  animation:fadeUp .8s ease .2s both;
+}
+.hero-badge .dot{width:6px;height:6px;background:var(--teal);border-radius:50%;animation:pulse 2s ease infinite;}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.5;transform:scale(.8);}}
+
+.hero h1{
+  font-family:'Syne',sans-serif;
+  font-size:clamp(48px, 8vw, 96px);
+  font-weight:800;line-height:.95;
+  letter-spacing:-3px;
+  animation:fadeUp .8s ease .4s both;
+  max-width:900px;
+}
+.hero h1 .line1{display:block;color:var(--white);}
+.hero h1 .line2{
+  display:block;
+  background:linear-gradient(135deg, var(--teal) 0%, var(--purple2) 50%, var(--teal) 100%);
+  background-size:200% 200%;
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  animation:gradientShift 4s ease infinite, fadeUp .8s ease .5s both;
+}
+@keyframes gradientShift{0%{background-position:0% 50%;}50%{background-position:100% 50%;}100%{background-position:0% 50%;}}
+
+.hero-sub{
+  font-size:18px;color:var(--muted);line-height:1.7;max-width:560px;
+  margin:28px auto 0;font-weight:300;
+  animation:fadeUp .8s ease .6s both;
+}
+.hero-sub strong{color:var(--white);font-weight:500;}
+
+.hero-actions{
+  display:flex;align-items:center;gap:16px;margin-top:44px;
+  animation:fadeUp .8s ease .7s both;
+  flex-wrap:wrap;justify-content:center;
+}
+.btn-primary{
+  background:var(--teal);color:var(--navy);
+  padding:16px 36px;border-radius:10px;
+  font-size:15px;font-weight:700;text-decoration:none;
+  letter-spacing:.3px;position:relative;overflow:hidden;
+  transition:transform .2s,box-shadow .2s;
+  box-shadow:0 0 40px rgba(0,201,192,.3);
+}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 60px rgba(0,201,192,.4);}
+.btn-secondary{
+  color:var(--muted);font-size:15px;font-weight:500;
+  text-decoration:none;padding:16px 20px;
+  border:1px solid var(--border);border-radius:10px;
+  transition:all .2s;
+}
+.btn-secondary:hover{color:var(--white);border-color:rgba(0,201,192,.3);}
+
+/* Trust strip */
+.trust-strip{
+  display:flex;align-items:center;justify-content:center;
+  gap:32px;margin-top:60px;flex-wrap:wrap;
+  animation:fadeUp .8s ease .9s both;
+}
+.trust-item{
+  display:flex;align-items:center;gap:8px;
+  font-size:12px;color:var(--muted);font-family:'DM Mono',monospace;
+}
+.trust-item::before{content:'✓';color:var(--teal);font-size:11px;}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(30px);}to{opacity:1;transform:translateY(0);}}
+
+/* ── SCROLL INDICATOR ──────────────────────────────────────── */
+.scroll-hint{
+  position:absolute;bottom:40px;left:50%;transform:translateX(-50%);
+  display:flex;flex-direction:column;align-items:center;gap:8px;
+  animation:fadeUp .8s ease 1.2s both;
+}
+.scroll-hint span{font-size:11px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;font-family:'DM Mono',monospace;}
+.scroll-line{width:1px;height:48px;background:linear-gradient(to bottom, var(--teal), transparent);animation:scrollDrop 2s ease infinite;}
+@keyframes scrollDrop{0%{transform:scaleY(0);transform-origin:top;}50%{transform:scaleY(1);transform-origin:top;}51%{transform-origin:bottom;}100%{transform:scaleY(0);transform-origin:bottom;}}
+
+/* ── SECTION HEADERS ───────────────────────────────────────── */
+.section-label{
+  font-family:'DM Mono',monospace;font-size:11px;color:var(--teal);
+  letter-spacing:3px;text-transform:uppercase;margin-bottom:16px;
+  display:flex;align-items:center;gap:12px;
+}
+.section-label::before{content:'';width:32px;height:1px;background:var(--teal);}
+.section-title{
+  font-family:'Syne',sans-serif;font-size:clamp(32px,5vw,56px);
+  font-weight:800;letter-spacing:-2px;line-height:1;
+  margin-bottom:20px;
+}
+.section-sub{font-size:17px;color:var(--muted);line-height:1.7;max-width:560px;font-weight:300;}
+
+/* ── PROBLEM SECTION ───────────────────────────────────────── */
+.problem{padding:140px 0;}
+.problem-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:80px;
+  align-items:center;margin-top:80px;
+}
+.problem-visual{
+  position:relative;height:420px;
+}
+.pain-card{
+  position:absolute;background:rgba(13,27,62,.8);
+  border:1px solid rgba(255,255,255,.08);border-radius:16px;
+  padding:24px;backdrop-filter:blur(8px);
+  animation:float var(--dur) ease-in-out infinite;
+}
+.pain-card h3{font-family:'Syne',sans-serif;font-size:15px;font-weight:700;margin-bottom:8px;color:var(--white);}
+.pain-card p{font-size:13px;color:var(--muted);line-height:1.5;}
+.pain-card .pain-icon{font-size:24px;margin-bottom:12px;}
+.pain-card.c1{top:0;left:0;width:260px;--dur:6s;}
+.pain-card.c2{top:80px;right:0;width:240px;--dur:7s;animation-delay:-2s;}
+.pain-card.c3{bottom:40px;left:40px;width:250px;--dur:5s;animation-delay:-3s;}
+@keyframes float{0%,100%{transform:translateY(0);}50%{transform:translateY(-12px);}}
+
+.pain-stats{display:flex;flex-direction:column;gap:24px;}
+.pain-stat{
+  display:flex;align-items:flex-start;gap:20px;
+  padding:24px;background:rgba(13,27,62,.5);
+  border:1px solid var(--border);border-radius:14px;
+  transition:all .3s;
+}
+.pain-stat:hover{border-color:rgba(0,201,192,.25);background:rgba(13,27,62,.8);}
+.pain-stat-num{
+  font-family:'Syne',sans-serif;font-size:36px;font-weight:800;
+  color:var(--teal);line-height:1;white-space:nowrap;
+}
+.pain-stat-text h4{font-size:14px;font-weight:600;margin-bottom:4px;}
+.pain-stat-text p{font-size:13px;color:var(--muted);}
+
+/* ── HOW IT WORKS ──────────────────────────────────────────── */
+.how{padding:140px 0;background:linear-gradient(to bottom, transparent, rgba(0,201,192,.02), transparent);}
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;margin-top:80px;position:relative;}
+.steps::before{
+  content:'';position:absolute;top:48px;left:12.5%;right:12.5%;height:1px;
+  background:linear-gradient(to right, transparent, var(--teal), var(--purple2), var(--teal), transparent);
+  z-index:0;
+}
+.step{
+  display:flex;flex-direction:column;align-items:center;
+  text-align:center;padding:0 16px;position:relative;z-index:1;
+}
+.step-num{
+  width:96px;height:96px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Syne',sans-serif;font-size:28px;font-weight:800;
+  position:relative;margin-bottom:28px;
+  transition:transform .3s;
+}
+.step:hover .step-num{transform:scale(1.08);}
+.step-num::before{
+  content:'';position:absolute;inset:-2px;border-radius:50%;
+  background:linear-gradient(135deg, var(--teal), var(--purple2));
+  z-index:-1;
+}
+.step-num::after{
+  content:'';position:absolute;inset:2px;border-radius:50%;
+  background:var(--navy2);z-index:-1;
+}
+.step-num span{position:relative;z-index:1;}
+.step h3{font-family:'Syne',sans-serif;font-size:17px;font-weight:700;margin-bottom:10px;}
+.step p{font-size:13px;color:var(--muted);line-height:1.6;}
+.step-tag{
+  margin-top:12px;font-size:10px;font-family:'DM Mono',monospace;
+  padding:4px 10px;border-radius:100px;
+}
+.tag-ai{background:rgba(124,58,237,.15);color:var(--purple2);border:1px solid rgba(124,58,237,.2);}
+.tag-human{background:rgba(0,201,192,.1);color:var(--teal);border:1px solid rgba(0,201,192,.2);}
+
+/* ── 3-LAYER AI SECTION ────────────────────────────────────── */
+.layers{padding:140px 0;}
+.layers-layout{display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center;margin-top:80px;}
+.layer-visual{position:relative;}
+.layer-stack{display:flex;flex-direction:column;gap:3px;}
+.layer-card{
+  border-radius:14px;padding:24px 28px;
+  display:flex;align-items:center;gap:20px;
+  position:relative;overflow:hidden;
+  transition:all .3s;cursor:default;
+  border:1px solid transparent;
+}
+.layer-card::before{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg, var(--c1), var(--c2));
+  opacity:.06;z-index:0;transition:opacity .3s;
+}
+.layer-card:hover::before{opacity:.12;}
+.layer-card:hover{transform:translateX(8px);border-color:var(--c1);}
+.layer1{--c1:rgba(0,201,192,.8);--c2:rgba(0,180,170,.8);}
+.layer2{--c1:rgba(124,58,237,.8);--c2:rgba(168,85,247,.8);}
+.layer3{--c1:rgba(245,158,11,.8);--c2:rgba(217,119,6,.8);}
+.layer-card>*{position:relative;z-index:1;}
+.layer-icon{
+  width:52px;height:52px;border-radius:12px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:22px;
+}
+.layer1 .layer-icon{background:rgba(0,201,192,.15);}
+.layer2 .layer-icon{background:rgba(124,58,237,.15);}
+.layer3 .layer-icon{background:rgba(245,158,11,.15);}
+.layer-info{flex:1;}
+.layer-info h3{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;margin-bottom:4px;}
+.layer-info p{font-size:13px;color:var(--muted);line-height:1.5;}
+.layer-credit{
+  font-family:'DM Mono',monospace;font-size:13px;font-weight:500;
+  padding:5px 12px;border-radius:6px;white-space:nowrap;
+}
+.layer1 .layer-credit{color:var(--teal);background:rgba(0,201,192,.1);}
+.layer2 .layer-credit{color:var(--purple2);background:rgba(124,58,237,.1);}
+.layer3 .layer-credit{color:var(--amber);background:rgba(245,158,11,.1);}
+
+/* Connector arrows */
+.layer-connector{
+  display:flex;align-items:center;justify-content:flex-start;
+  padding:6px 28px;font-size:11px;color:var(--muted);
+  font-family:'DM Mono',monospace;gap:10px;
+}
+.layer-connector::before{content:'↓ if unresolved →';color:var(--border);}
+
+.layer-text .point{
+  display:flex;align-items:flex-start;gap:14px;
+  padding:18px 0;border-bottom:1px solid var(--border);
+}
+.layer-text .point:last-child{border:none;}
+.point-icon{font-size:20px;flex-shrink:0;margin-top:2px;}
+.point-text h4{font-size:15px;font-weight:600;margin-bottom:4px;}
+.point-text p{font-size:13px;color:var(--muted);line-height:1.6;}
+
+/* ── WHY US ────────────────────────────────────────────────── */
+.why{padding:140px 0;}
+.why-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:2px;margin-top:80px;}
+.why-card{
+  padding:40px 32px;
+  background:rgba(13,27,62,.5);
+  border:1px solid var(--border);
+  position:relative;overflow:hidden;
+  transition:all .3s;
+}
+.why-card::after{
+  content:'';position:absolute;inset:0;
+  background:linear-gradient(135deg, rgba(0,201,192,.06), transparent);
+  opacity:0;transition:opacity .3s;
+}
+.why-card:hover{border-color:rgba(0,201,192,.2);transform:translateY(-4px);}
+.why-card:hover::after{opacity:1;}
+.why-card:first-child{border-radius:20px 0 0 20px;}
+.why-card:last-child{border-radius:0 20px 20px 0;}
+.why-num{
+  font-family:'Syne',sans-serif;font-size:64px;font-weight:800;
+  color:rgba(0,201,192,.08);position:absolute;top:20px;right:24px;
+  line-height:1;
+}
+.why-icon{font-size:32px;margin-bottom:20px;position:relative;z-index:1;}
+.why-card h3{
+  font-family:'Syne',sans-serif;font-size:20px;font-weight:700;
+  margin-bottom:12px;position:relative;z-index:1;
+}
+.why-card p{font-size:14px;color:var(--muted);line-height:1.7;position:relative;z-index:1;}
+
+/* ── COMPARISON TABLE ──────────────────────────────────────── */
+.compare{padding:140px 0;}
+.compare-table{margin-top:60px;border-radius:20px;overflow:hidden;border:1px solid var(--border);}
+.compare-row{
+  display:grid;grid-template-columns:2fr 1fr 1fr 1fr;
+  border-bottom:1px solid var(--border);
+}
+.compare-row:last-child{border:none;}
+.compare-row.header{background:rgba(0,201,192,.04);}
+.compare-cell{
+  padding:18px 24px;font-size:14px;
+  display:flex;align-items:center;
+}
+.compare-cell.feature{font-weight:500;}
+.compare-cell.us{
+  background:rgba(0,201,192,.05);
+  color:var(--teal);font-weight:600;
+  border-left:1px solid rgba(0,201,192,.12);
+  border-right:1px solid rgba(0,201,192,.12);
+}
+.compare-cell.header-us{
+  background:rgba(0,201,192,.1);
+  color:var(--teal);font-family:'Syne',sans-serif;font-weight:700;
+  border-left:1px solid rgba(0,201,192,.2);
+  border-right:1px solid rgba(0,201,192,.2);
+}
+.compare-cell.col-head{font-family:'Syne',sans-serif;font-weight:700;font-size:13px;color:var(--muted);}
+.tick{color:var(--teal);}
+.cross{color:rgba(255,255,255,.15);}
+.part{color:var(--amber);}
+
+/* ── MARKETPLACE SECTION ───────────────────────────────────── */
+.market{padding:140px 0;}
+.market-cards{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:60px;}
+.market-card{
+  padding:40px;border-radius:20px;
+  border:1px solid var(--border);
+  background:rgba(13,27,62,.6);
+  position:relative;overflow:hidden;
+  transition:all .3s;
+}
+.market-card:hover{transform:translateY(-6px);box-shadow:0 24px 80px rgba(0,0,0,.4);}
+.market-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:var(--grad);
+}
+.market-card.atlassian{--grad:linear-gradient(to right, #0052CC, #0065FF);}
+.market-card.smartbear{--grad:linear-gradient(to right, var(--purple), var(--purple2));}
+.market-logo{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;margin-bottom:12px;}
+.market-card.atlassian .market-logo{color:#0065FF;}
+.market-card.smartbear .market-logo{color:var(--purple2);}
+.market-card p{font-size:14px;color:var(--muted);line-height:1.7;margin-bottom:24px;}
+.market-pill{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:12px;font-family:'DM Mono',monospace;
+  padding:6px 14px;border-radius:100px;
+}
+.market-card.atlassian .market-pill{background:rgba(0,82,204,.15);color:#4C9AFF;border:1px solid rgba(0,82,204,.2);}
+.market-card.smartbear .market-pill{background:rgba(124,58,237,.15);color:var(--purple2);border:1px solid rgba(124,58,237,.2);}
+
+/* ── HUMAN IN THE LOOP ─────────────────────────────────────── */
+.human{padding:140px 0;}
+.human-flow{
+  display:flex;align-items:stretch;gap:0;margin-top:80px;
+  border-radius:20px;overflow:hidden;border:1px solid var(--border);
+}
+.flow-step{
+  flex:1;padding:40px 28px;text-align:center;position:relative;
+  background:rgba(13,27,62,.5);transition:all .3s;
+}
+.flow-step:not(:last-child)::after{
+  content:'→';position:absolute;right:-12px;top:50%;
+  transform:translateY(-50%);font-size:20px;color:var(--teal);
+  z-index:2;
+}
+.flow-step:hover{background:rgba(13,27,62,.9);}
+.flow-step.ai-step{background:rgba(124,58,237,.05);}
+.flow-step.human-step{background:rgba(0,201,192,.05);}
+.flow-emoji{font-size:40px;margin-bottom:16px;display:block;}
+.flow-step h3{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;margin-bottom:8px;}
+.flow-step p{font-size:13px;color:var(--muted);line-height:1.5;}
+.flow-badge{
+  display:inline-block;margin-top:12px;
+  font-size:10px;font-family:'DM Mono',monospace;
+  padding:3px 10px;border-radius:100px;
+}
+.ai-badge{background:rgba(124,58,237,.15);color:var(--purple2);}
+.human-badge{background:rgba(0,201,192,.1);color:var(--teal);}
+
+/* ── PRICING PREVIEW ───────────────────────────────────────── */
+.pricing{padding:140px 0;}
+.pricing-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:60px;}
+.price-card{
+  border-radius:16px;padding:32px 24px;
+  background:rgba(13,27,62,.6);border:1px solid var(--border);
+  transition:all .3s;position:relative;
+}
+.price-card:hover{transform:translateY(-6px);border-color:rgba(0,201,192,.2);}
+.price-card.featured{
+  border-color:rgba(0,201,192,.3);
+  background:rgba(0,201,192,.04);
+  box-shadow:0 0 60px rgba(0,201,192,.1);
+}
+.price-card.featured::before{
+  content:'Most Popular';position:absolute;top:-12px;left:50%;transform:translateX(-50%);
+  background:var(--teal);color:var(--navy);font-size:11px;font-weight:700;
+  padding:4px 14px;border-radius:100px;font-family:'DM Mono',monospace;white-space:nowrap;
+}
+.price-tier{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;margin-bottom:8px;}
+.price-amount{font-family:'Syne',sans-serif;font-size:36px;font-weight:800;color:var(--teal);margin-bottom:4px;}
+.price-amount span{font-size:16px;color:var(--muted);font-weight:400;}
+.price-credits{font-size:13px;color:var(--muted);margin-bottom:24px;font-family:'DM Mono',monospace;}
+.price-features{list-style:none;display:flex;flex-direction:column;gap:10px;}
+.price-features li{font-size:13px;display:flex;align-items:center;gap:8px;color:var(--muted);}
+.price-features li::before{content:'⚡';font-size:12px;color:var(--teal);}
+
+/* ── CTA SECTION ───────────────────────────────────────────── */
+.cta{
+  padding:160px 0;text-align:center;
+  position:relative;overflow:hidden;
+}
+.cta::before{
+  content:'';position:absolute;inset:0;
+  background:radial-gradient(ellipse 80% 60% at 50% 50%, rgba(0,201,192,.07), transparent);
+}
+.cta h2{
+  font-family:'Syne',sans-serif;
+  font-size:clamp(40px,6vw,72px);
+  font-weight:800;letter-spacing:-2px;
+  line-height:1;margin-bottom:24px;
+}
+.cta p{font-size:18px;color:var(--muted);margin-bottom:44px;max-width:480px;margin-left:auto;margin-right:auto;}
+.cta-actions{display:flex;justify-content:center;gap:16px;flex-wrap:wrap;}
+.nl-badge{
+  margin-top:60px;font-size:13px;color:var(--muted);
+  display:flex;align-items:center;justify-content:center;gap:8px;
+}
+.nl-badge strong{color:var(--teal);}
+
+/* ── FOOTER ────────────────────────────────────────────────── */
+footer{
+  padding:40px;border-top:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:16px;
+}
+footer p{font-size:12px;color:var(--muted);}
+footer a{color:var(--muted);text-decoration:none;font-size:12px;transition:color .2s;}
+footer a:hover{color:var(--teal);}
+.footer-links{display:flex;gap:24px;}
+
+/* ── SCROLL REVEAL ─────────────────────────────────────────── */
+.reveal{opacity:0;transform:translateY(40px);transition:opacity .8s ease, transform .8s ease;}
+.reveal.visible{opacity:1;transform:translateY(0);}
+.reveal-delay-1{transition-delay:.1s;}
+.reveal-delay-2{transition-delay:.2s;}
+.reveal-delay-3{transition-delay:.3s;}
+.reveal-delay-4{transition-delay:.4s;}
+
+/* ── TICKER ────────────────────────────────────────────────── */
+.ticker-wrap{
+  background:rgba(0,201,192,.04);border-top:1px solid var(--border);
+  border-bottom:1px solid var(--border);padding:14px 0;overflow:hidden;
+  margin:0 0 0 0;
+}
+.ticker{display:flex;white-space:nowrap;animation:ticker 30s linear infinite;}
+.ticker-item{
+  font-family:'DM Mono',monospace;font-size:12px;color:var(--muted);
+  padding:0 40px;display:flex;align-items:center;gap:16px;
+}
+.ticker-item::after{content:'◆';color:var(--teal);font-size:8px;}
+@keyframes ticker{from{transform:translateX(0);}to{transform:translateX(-50%);}}
+
+/* ── ANIMATED COUNTER ──────────────────────────────────────── */
+.counter{display:inline-block;}
+
+/* ── RESPONSIVE ────────────────────────────────────────────── */
+@media(max-width:900px){
+  .problem-grid,.layers-layout{grid-template-columns:1fr;}
+  .problem-visual{display:none;}
+  .steps{grid-template-columns:1fr 1fr;}
+  .steps::before{display:none;}
+  .why-grid{grid-template-columns:1fr;}
+  .why-card:first-child,.why-card:last-child{border-radius:12px;}
+  .market-cards,.pricing-cards{grid-template-columns:1fr 1fr;}
+  .human-flow{flex-direction:column;}
+  .flow-step:not(:last-child)::after{content:'↓';right:50%;top:auto;bottom:-15px;}
+}
+</style>
+</head>
+<body>
+
+<!-- Custom cursor -->
+<div class="cursor cursor-dot" id="cur-dot"></div>
+<div class="cursor cursor-ring" id="cur-ring"></div>
+
+<!-- Background -->
+<div class="grid-bg"></div>
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+<div class="orb orb3"></div>
+
+<!-- ── NAV ── -->
+<nav>
+  <div class="logo"><span>Verid</span><span>-iq</span></div>
+  <div class="nav-links">
+    <a href="#how">How it works</a>
+    <a href="#why">Why us</a>
+    <a href="#pricing">Pricing</a>
+    <a href="#marketplace">Marketplace</a>
+  </div>
+  <a href="/register" class="nav-cta">Start free →</a>
+</nav>
+
+<!-- ── HERO ── -->
+<section class="hero">
+  <div class="hero-badge">
+    <span class="dot"></span>
+    Now available on Atlassian & SmartBear Marketplace
+  </div>
+  <h1>
+    <span class="line1">AI drafts.</span>
+    <span class="line2">You decide.</span>
+  </h1>
+  <p class="hero-sub">
+    Verid-iq eliminates the repetitive drafting work in software testing.
+    <strong>Paste your user story.</strong> Get professional test cases, BDD scenarios,
+    and defect reports — grounded in ISTQB standards.
+    <strong>You review. You approve. Always.</strong>
+  </p>
+  <div class="hero-actions">
+    <a href="/register" class="btn-primary">Generate free →</a>
+    <a href="#how" class="btn-secondary">See how it works ↓</a>
+  </div>
+  <div class="trust-strip">
+    <div class="trust-item">ISTQB-grounded knowledge</div>
+    <div class="trust-item">Human review always in the loop</div>
+    <div class="trust-item">Jira & Xray native</div>
+    <div class="trust-item">50 free credits on signup</div>
+  </div>
+  <div class="scroll-hint">
+    <span>scroll</span>
+    <div class="scroll-line"></div>
+  </div>
+</section>
+
+<!-- ── TICKER ── -->
+<div class="ticker-wrap">
+  <div class="ticker">
+    <div class="ticker-item">Test Cases</div>
+    <div class="ticker-item">BDD Scenarios</div>
+    <div class="ticker-item">Defect Reports</div>
+    <div class="ticker-item">Regression Impact</div>
+    <div class="ticker-item">Exploratory Charters</div>
+    <div class="ticker-item">AC Reviews</div>
+    <div class="ticker-item">Test Plans</div>
+    <div class="ticker-item">Negative Test Cases</div>
+    <div class="ticker-item">Test Cases</div>
+    <div class="ticker-item">BDD Scenarios</div>
+    <div class="ticker-item">Defect Reports</div>
+    <div class="ticker-item">Regression Impact</div>
+    <div class="ticker-item">Exploratory Charters</div>
+    <div class="ticker-item">AC Reviews</div>
+    <div class="ticker-item">Test Plans</div>
+    <div class="ticker-item">Negative Test Cases</div>
+  </div>
+</div>
+
+<!-- ── PROBLEM ── -->
+<section class="problem" id="problem">
+  <div class="container">
+    <div class="reveal">
+      <div class="section-label">The problem</div>
+      <h2 class="section-title">Your testing team's<br/>time is being wasted</h2>
+      <p class="section-sub">Skilled testers spend hours writing boilerplate test case structure from user stories they could read in minutes. That's not where your expertise belongs.</p>
+    </div>
+    <div class="problem-grid">
+      <div class="problem-visual">
+        <div class="pain-card c1 reveal">
+          <div class="pain-icon">⏱</div>
+          <h3>Hours on boilerplate</h3>
+          <p>Writing test case structure, preconditions, and step formats — the same pattern, every sprint.</p>
+        </div>
+        <div class="pain-card c2 reveal reveal-delay-1">
+          <div class="pain-icon">⚠️</div>
+          <h3>Inconsistent quality</h3>
+          <p>Test cases vary in depth and format across engineers, leading to gaps and missed scenarios.</p>
+        </div>
+        <div class="pain-card c3 reveal reveal-delay-2">
+          <div class="pain-icon">📋</div>
+          <h3>Context switching</h3>
+          <p>Jumping between Jira, a test tool, and a doc editor to write and link a single test case.</p>
+        </div>
+      </div>
+      <div class="pain-stats reveal reveal-delay-1">
+        <div class="pain-stat">
+          <div class="pain-stat-num"><span class="counter" data-target="67">0</span>%</div>
+          <div class="pain-stat-text">
+            <h4>of test engineers' time</h4>
+            <p>is spent on documentation and test case writing — not on actual testing thinking.</p>
+          </div>
+        </div>
+        <div class="pain-stat">
+          <div class="pain-stat-num"><span class="counter" data-target="4">0</span>×</div>
+          <div class="pain-stat-text">
+            <h4>faster with Verid-iq</h4>
+            <p>Teams generate a full sprint's test artifacts in the time it takes to write one manually.</p>
+          </div>
+        </div>
+        <div class="pain-stat">
+          <div class="pain-stat-num"><span class="counter" data-target="100">0</span>%</div>
+          <div class="pain-stat-text">
+            <h4>human review, always</h4>
+            <p>Every artifact Verid-iq produces is a first draft. Your expertise shapes the final result.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── HOW IT WORKS ── -->
+<section class="how" id="how">
+  <div class="container">
+    <div class="reveal" style="text-align:center">
+      <div class="section-label" style="justify-content:center">How it works</div>
+      <h2 class="section-title">Four steps.<br/>Seconds, not hours.</h2>
+    </div>
+    <div class="steps">
+      <div class="step reveal">
+        <div class="step-num"><span>01</span></div>
+        <h3>Paste your story</h3>
+        <p>Drop your user story or acceptance criteria into Verid-iq — directly in Jira or the web app.</p>
+        <div class="step-tag tag-human">You</div>
+      </div>
+      <div class="step reveal reveal-delay-1">
+        <div class="step-num"><span>02</span></div>
+        <h3>AI drafts instantly</h3>
+        <p>Verid-iq generates structured, ISTQB-grounded test artifacts through its 3-layer intelligence engine.</p>
+        <div class="step-tag tag-ai">AI</div>
+      </div>
+      <div class="step reveal reveal-delay-2">
+        <div class="step-num"><span>03</span></div>
+        <h3>You review & refine</h3>
+        <p>Apply your domain expertise. Edit, enrich, and approve the draft before it enters your test suite.</p>
+        <div class="step-tag tag-human">You</div>
+      </div>
+      <div class="step reveal reveal-delay-3">
+        <div class="step-num"><span>04</span></div>
+        <h3>Push to Xray</h3>
+        <p>One click sends approved test cases directly to Xray as structured Test issues with requirement links.</p>
+        <div class="step-tag tag-human">You approve</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── 3-LAYER AI ── -->
+<section class="layers" id="layers">
+  <div class="container">
+    <div class="layers-layout">
+      <div class="layer-text reveal">
+        <div class="section-label">Intelligence architecture</div>
+        <h2 class="section-title">Three layers.<br/>One smart engine.</h2>
+        <p class="section-sub" style="margin-bottom:36px">Verid-iq resolves every request from the closest layer possible — saving your credits and protecting your data.</p>
+        <div class="point">
+          <div class="point-icon">🔒</div>
+          <div class="point-text">
+            <h4>Your data stays yours</h4>
+            <p>Sensitive project details, system names, and classified content stay in Layer 1 — your account only. Nothing leaves without your control.</p>
+          </div>
+        </div>
+        <div class="point">
+          <div class="point-icon">🧠</div>
+          <div class="point-text">
+            <h4>Platform intelligence compounds</h4>
+            <p>Every interaction enriches the anonymised platform knowledge base. The product gets smarter. Your identity stays private.</p>
+          </div>
+        </div>
+        <div class="point">
+          <div class="point-icon">⚡</div>
+          <div class="point-text">
+            <h4>Credits saved automatically</h4>
+            <p>Layer 1 costs 0 credits. Layer 2 costs 1. Only Layer 3 calls Anthropic. Most requests are answered before reaching the AI.</p>
+          </div>
+        </div>
+      </div>
+      <div class="layer-visual reveal reveal-delay-1">
+        <div class="layer-stack">
+          <div class="layer-card layer1">
+            <div class="layer-icon">👤</div>
+            <div class="layer-info">
+              <h3>Layer 1 — Your Context</h3>
+              <p>Personal & team knowledge. Sensitive details never leave. Context preserved per user.</p>
+            </div>
+            <div class="layer-credit">0 credits</div>
+          </div>
+          <div class="layer-connector"></div>
+          <div class="layer-card layer2">
+            <div class="layer-icon">🌐</div>
+            <div class="layer-info">
+              <h3>Layer 2 — Platform Knowledge</h3>
+              <p>Anonymised patterns from all interactions. ISTQB knowledge volumes. No PII. No names.</p>
+            </div>
+            <div class="layer-credit">1 credit</div>
+          </div>
+          <div class="layer-connector"></div>
+          <div class="layer-card layer3">
+            <div class="layer-icon">🤖</div>
+            <div class="layer-info">
+              <h3>Layer 3 — Anthropic AI</h3>
+              <p>Full AI generation only when layers 1 and 2 are insufficient. Domain-grounded prompts.</p>
+            </div>
+            <div class="layer-credit">3–10 credits</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── HUMAN IN THE LOOP ── -->
+<section class="human" id="human">
+  <div class="container">
+    <div class="reveal" style="text-align:center">
+      <div class="section-label" style="justify-content:center">Our philosophy</div>
+      <h2 class="section-title">AI enhances.<br/>Humans decide.</h2>
+      <p class="section-sub" style="margin:0 auto 60px;text-align:center">We believe great testing is a human skill. Verid-iq removes the repetitive work — it never removes your judgement.</p>
+    </div>
+    <div class="human-flow reveal">
+      <div class="flow-step ai-step">
+        <span class="flow-emoji">📝</span>
+        <h3>User story in Jira</h3>
+        <p>Your story, your requirements, your context</p>
+        <span class="flow-badge human-badge">You write it</span>
+      </div>
+      <div class="flow-step ai-step">
+        <span class="flow-emoji">⚡</span>
+        <h3>Verid-iq drafts</h3>
+        <p>Structured artifacts in seconds, grounded in testing best practice</p>
+        <span class="flow-badge ai-badge">AI in seconds</span>
+      </div>
+      <div class="flow-step human-step">
+        <span class="flow-emoji">🔍</span>
+        <h3>You review</h3>
+        <p>Apply domain knowledge, refine edge cases, correct assumptions</p>
+        <span class="flow-badge human-badge">Your expertise</span>
+      </div>
+      <div class="flow-step human-step">
+        <span class="flow-emoji">✅</span>
+        <h3>You approve</h3>
+        <p>Only approved artifacts enter your test suite or push to Xray</p>
+        <span class="flow-badge human-badge">Your sign-off</span>
+      </div>
+      <div class="flow-step human-step">
+        <span class="flow-emoji">🚀</span>
+        <h3>Push to Xray</h3>
+        <p>Human-approved test cases land in Xray with requirement links</p>
+        <span class="flow-badge human-badge">You push</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── WHY US ── -->
+<section class="why" id="why">
+  <div class="container">
+    <div class="reveal">
+      <div class="section-label">Why Verid-iq</div>
+      <h2 class="section-title">Built different.<br/>For practitioners.</h2>
+    </div>
+    <div class="why-grid">
+      <div class="why-card reveal">
+        <div class="why-num">01</div>
+        <div class="why-icon">🎓</div>
+        <h3>Domain knowledge baked in</h3>
+        <p>Six knowledge volumes — ISTQB standards, BDD practices, Jira/Xray integration, security testing — loaded into every generation. Not generic AI. Testing AI.</p>
+      </div>
+      <div class="why-card reveal reveal-delay-1">
+        <div class="why-num">02</div>
+        <div class="why-icon">🔗</div>
+        <h3>Lives inside your workflow</h3>
+        <p>A panel inside Jira issues. Generate, review, and push to Xray without leaving the tool your team already uses. Zero onboarding friction.</p>
+      </div>
+      <div class="why-card reveal reveal-delay-2">
+        <div class="why-num">03</div>
+        <div class="why-icon">🧠</div>
+        <h3>Gets smarter with you</h3>
+        <p>The 3-layer AI engine learns from every interaction. Anonymous platform patterns compound over time. Answers get faster. Credits get cheaper.</p>
+      </div>
+      <div class="why-card reveal reveal-delay-3">
+        <div class="why-num">04</div>
+        <div class="why-icon">🔒</div>
+        <h3>Privacy by architecture</h3>
+        <p>Classified mode. Layer 1 isolation. No names, no system identifiers in the platform layer. Your sensitive test context never leaves your account.</p>
+      </div>
+      <div class="why-card reveal reveal-delay-1">
+        <div class="why-num">05</div>
+        <div class="why-icon">⚡</div>
+        <h3>Credit-based transparency</h3>
+        <p>Pay per generation, not per seat. See exactly what every artifact costs. A live credit dashboard — top-right, always visible. No surprise bills.</p>
+      </div>
+      <div class="why-card reveal reveal-delay-2">
+        <div class="why-num">06</div>
+        <div class="why-icon">🏗️</div>
+        <h3>Built by a practitioner</h3>
+        <p>20+ years of enterprise testing, project management, and Dynamics 365 delivery experience behind every prompt. Not built by engineers guessing at testing.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── COMPARISON ── -->
+<section class="compare">
+  <div class="container">
+    <div class="reveal" style="text-align:center">
+      <div class="section-label" style="justify-content:center">Comparison</div>
+      <h2 class="section-title">Why not the others?</h2>
+    </div>
+    <div class="compare-table reveal reveal-delay-1">
+      <div class="compare-row header">
+        <div class="compare-cell col-head">Feature</div>
+        <div class="compare-cell header-us">Verid-iq</div>
+        <div class="compare-cell col-head">Xray / Zephyr</div>
+        <div class="compare-cell col-head">Generic AI</div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-cell feature">AI test case generation</div>
+        <div class="compare-cell us">✓ Deep, ISTQB-grounded</div>
+        <div class="compare-cell"><span class="cross">✗ None</span></div>
+        <div class="compare-cell"><span class="part">◑ Generic only</span></div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-cell feature">BDD / Gherkin generation</div>
+        <div class="compare-cell us">✓ Declarative, best-practice</div>
+        <div class="compare-cell"><span class="cross">✗</span></div>
+        <div class="compare-cell"><span class="part">◑ Basic</span></div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-cell feature">Native Jira panel</div>
+        <div class="compare-cell us">✓ Built-in panel</div>
+        <div class="compare-cell"><span class="tick">✓</span></div>
+        <div class="compare-cell"><span class="cross">✗</span></div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-cell feature">Push directly to Xray</div>
+        <div class="compare-cell us">✓ One click, structured</div>
+        <div class="compare-cell"><span class="tick">✓ Manual</span></div>
+        <div class="compare-cell"><span class="cross">✗</span></div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-cell feature">Testing domain knowledge</div>
+        <div class="compare-cell us">✓ 6 knowledge volumes</div>
+        <div class="compare-cell"><span class="cross">✗</span></div>
+        <div class="compare-cell"><span class="cross">✗</span></div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-cell feature">Human-in-the-loop by design</div>
+        <div class="compare-cell us">✓ Core philosophy</div>
+        <div class="compare-cell"><span class="part">◑ Partial</span></div>
+        <div class="compare-cell"><span class="cross">✗</span></div>
+      </div>
+      <div class="compare-row">
+        <div class="compare-cell feature">Privacy-first AI architecture</div>
+        <div class="compare-cell us">✓ 3-layer isolation</div>
+        <div class="compare-cell"><span class="cross">✗</span></div>
+        <div class="compare-cell"><span class="cross">✗</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── MARKETPLACE ── -->
+<section class="market" id="marketplace">
+  <div class="container">
+    <div class="reveal" style="text-align:center">
+      <div class="section-label" style="justify-content:center">Distribution</div>
+      <h2 class="section-title">Find us where<br/>you already work.</h2>
+    </div>
+    <div class="market-cards reveal reveal-delay-1">
+      <div class="market-card atlassian">
+        <div class="market-logo">Atlassian Marketplace</div>
+        <p>Install Verid-iq directly into your Jira Cloud instance. Adds an AI generation panel to every issue view. Rated in the Test Management category.</p>
+        <div class="market-pill">🔵 Jira Cloud · Test Management</div>
+      </div>
+      <div class="market-card smartbear">
+        <div class="market-logo">SmartBear Marketplace</div>
+        <p>Listed on the Xray ecosystem marketplace — purpose-built for Xray users who want AI-powered test generation that feeds directly into their test management workflow.</p>
+        <div class="market-pill">🟣 Xray Ecosystem · AI Generation</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── PRICING ── -->
+<section class="pricing" id="pricing">
+  <div class="container">
+    <div class="reveal" style="text-align:center">
+      <div class="section-label" style="justify-content:center">Pricing</div>
+      <h2 class="section-title">Credits, not seats.</h2>
+      <p class="section-sub" style="margin:0 auto 16px;text-align:center">Pay per generation. Layer 1 hits cost nothing. Layer 2 costs 1 credit. You only spend when the AI truly works.</p>
+    </div>
+    <div class="pricing-cards">
+      <div class="price-card reveal">
+        <div class="price-tier">Free</div>
+        <div class="price-amount">£0<span>/mo</span></div>
+        <div class="price-credits">50 credits / month</div>
+        <ul class="price-features">
+          <li>All 8 generation types</li>
+          <li>Layer 1 & 2 access</li>
+          <li>Web app access</li>
+          <li>5 top-up packs available</li>
+        </ul>
+      </div>
+      <div class="price-card reveal reveal-delay-1">
+        <div class="price-tier">Starter</div>
+        <div class="price-amount">£12<span>/mo</span></div>
+        <div class="price-credits">300 credits / month</div>
+        <ul class="price-features">
+          <li>Everything in Free</li>
+          <li>Xray push integration</li>
+          <li>Generation history</li>
+          <li>Credit rollover</li>
+        </ul>
+      </div>
+      <div class="price-card featured reveal reveal-delay-2">
+        <div class="price-tier">Team</div>
+        <div class="price-amount">£35<span>/mo</span></div>
+        <div class="price-credits">1,000 shared credits / month</div>
+        <ul class="price-features">
+          <li>Up to 10 users</li>
+          <li>Shared credit pool</li>
+          <li>Team context (Layer 1)</li>
+          <li>Admin dashboard</li>
+        </ul>
+      </div>
+      <div class="price-card reveal reveal-delay-3">
+        <div class="price-tier">Enterprise</div>
+        <div class="price-amount">£199<span>/mo</span></div>
+        <div class="price-credits">Unlimited credits</div>
+        <ul class="price-features">
+          <li>Unlimited users</li>
+          <li>Custom knowledge tuning</li>
+          <li>SLA + dedicated support</li>
+          <li>Classified mode enforced</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA ── -->
+<section class="cta">
+  <div class="container">
+    <div class="reveal">
+      <h2>Your team's expertise<br/><span style="color:var(--teal)">deserves better tools.</span></h2>
+      <p>Start with 50 free credits. No card. No commitment. See what professional AI-assisted testing looks like in 60 seconds.</p>
+      <div class="cta-actions">
+        <a href="/register" class="btn-primary">Get started free →</a>
+        <a href="https://marketplace.atlassian.com" target="_blank" class="btn-secondary">View on Atlassian ↗</a>
+      </div>
+      <div class="nl-badge">
+        Built by <strong>Network Logic Limited</strong> · Rugby, United Kingdom
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FOOTER ── -->
+<footer>
+  <div class="logo"><span>Verid</span><span>-iq</span></div>
+  <p>© 2026 Network Logic Limited · Verid-iq is a registered trade mark of Network Logic Limited</p>
+  <div class="footer-links">
+    <a href="/terms">Terms</a>
+    <a href="/privacy">Privacy</a>
+    <a href="https://networklogic.uk">networklogic.uk</a>
+  </div>
+</footer>
+
+<script>
+// ── CUSTOM CURSOR ──────────────────────────────────────────────
+const dot = document.getElementById('cur-dot');
+const ring = document.getElementById('cur-ring');
+let mx=0,my=0,rx=0,ry=0;
+document.addEventListener('mousemove', e => { mx=e.clientX; my=e.clientY; dot.style.left=mx+'px'; dot.style.top=my+'px'; });
+(function animRing(){rx+=(mx-rx)*.12; ry+=(my-ry)*.12;
+  ring.style.left=rx+'px'; ring.style.top=ry+'px';
+  requestAnimationFrame(animRing);})();
+
+// ── SCROLL REVEAL ──────────────────────────────────────────────
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.12 });
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+// ── ANIMATED COUNTERS ──────────────────────────────────────────
+const counterObserver = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if(!e.isIntersecting) return;
+    const el = e.target;
+    const target = parseInt(el.dataset.target);
+    let start = 0;
+    const duration = 2000;
+    const step = timestamp => {
+      if(!start) start = timestamp;
+      const progress = Math.min((timestamp - start) / duration, 1);
+      const ease = 1 - Math.pow(1 - progress, 3);
+      el.textContent = Math.floor(ease * target);
+      if(progress < 1) requestAnimationFrame(step);
+      else el.textContent = target;
+    };
+    requestAnimationFrame(step);
+    counterObserver.unobserve(el);
+  });
+}, { threshold: 0.5 });
+document.querySelectorAll('.counter').forEach(el => counterObserver.observe(el));
+
+// ── NAV SCROLL EFFECT ──────────────────────────────────────────
+window.addEventListener('scroll', () => {
+  const nav = document.querySelector('nav');
+  if(window.scrollY > 60) {
+    nav.style.background = 'rgba(6,15,36,.95)';
+    nav.style.borderBottomColor = 'rgba(0,201,192,.08)';
+  } else {
+    nav.style.background = 'linear-gradient(to bottom, rgba(6,15,36,.9), transparent)';
+    nav.style.borderBottomColor = 'rgba(0,201,192,.06)';
+  }
+});
+
+// ── LAYER CARD INTERACTION ─────────────────────────────────────
+document.querySelectorAll('.layer-card').forEach(card => {
+  card.addEventListener('mouseenter', () => {
+    card.style.zIndex = '2';
+  });
+  card.addEventListener('mouseleave', () => {
+    card.style.zIndex = '';
+  });
+});
+</script>
+</body>
+</html>

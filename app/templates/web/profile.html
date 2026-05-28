@@ -1,0 +1,77 @@
+{% extends "web/_base.html" %}
+{% block title %}Profile{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto space-y-8">
+  <h1 class="text-2xl font-bold text-white">Profile & Settings</h1>
+
+  <div id="success-msg" class="hidden bg-emerald-900/30 border border-emerald-500/30 rounded-lg p-3 text-sm text-emerald-300">Changes saved.</div>
+
+  <!-- Profile -->
+  <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-6 space-y-4">
+    <h2 class="text-sm font-semibold text-[#00B5AD]">Personal Information</h2>
+    <div class="grid grid-cols-2 gap-4">
+      <div><label class="block text-xs text-slate-500 mb-1">Display Name</label>
+        <input id="display_name" type="text" value="{{ user.display_name }}" class="w-full bg-slate-900/60 border border-slate-600/50 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#00B5AD]/50"/></div>
+      <div><label class="block text-xs text-slate-500 mb-1">Phone</label>
+        <input id="phone" type="text" value="{{ user.phone or '' }}" placeholder="+44..." class="w-full bg-slate-900/60 border border-slate-600/50 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#00B5AD]/50"/></div>
+    </div>
+    <div><label class="block text-xs text-slate-500 mb-1">Email <span class="text-slate-600">(read-only)</span></label>
+      <input type="text" value="{{ user.email }}" disabled class="w-full bg-slate-900/30 border border-slate-700/30 rounded-lg px-3 py-2 text-sm text-slate-500"/></div>
+  </div>
+
+  <!-- Billing -->
+  <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-6 space-y-4">
+    <h2 class="text-sm font-semibold text-[#00B5AD]">Billing Details <span class="text-slate-600 font-normal">(used on invoices)</span></h2>
+    <div class="grid grid-cols-2 gap-4">
+      <div><label class="block text-xs text-slate-500 mb-1">Billing Name</label>
+        <input id="billing_name" type="text" value="{{ user.billing_name or '' }}" class="w-full bg-slate-900/60 border border-slate-600/50 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#00B5AD]/50"/></div>
+      <div><label class="block text-xs text-slate-500 mb-1">Company Name</label>
+        <input id="company_name" type="text" value="{{ user.company_name or '' }}" class="w-full bg-slate-900/60 border border-slate-600/50 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#00B5AD]/50"/></div>
+    </div>
+    <div><label class="block text-xs text-slate-500 mb-1">Billing Address</label>
+      <textarea id="billing_address" rows="2" class="w-full bg-slate-900/60 border border-slate-600/50 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#00B5AD]/50">{{ user.billing_address or '' }}</textarea></div>
+    <div class="w-1/2"><label class="block text-xs text-slate-500 mb-1">VAT Number</label>
+      <input id="billing_vat" type="text" value="{{ user.billing_vat or '' }}" placeholder="GB123456789" class="w-full bg-slate-900/60 border border-slate-600/50 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#00B5AD]/50"/></div>
+  </div>
+
+  <!-- Privacy -->
+  <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-6">
+    <h2 class="text-sm font-semibold text-[#00B5AD] mb-4">Privacy & Data</h2>
+    <label class="flex items-start gap-3 cursor-pointer">
+      <input id="classified_mode" type="checkbox" {% if user.classified_mode %}checked{% endif %} class="mt-0.5 accent-[#00B5AD]"/>
+      <div>
+        <div class="text-sm text-slate-200">Classified Mode</div>
+        <div class="text-xs text-slate-500 mt-0.5">Your input content and generated artifacts are never used to enrich the platform knowledge base. Your context stays entirely within Layer 1 — your account only.</div>
+      </div>
+    </label>
+  </div>
+
+  <!-- Change password -->
+  <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-6 space-y-4">
+    <h2 class="text-sm font-semibold text-[#00B5AD]">Change Password</h2>
+    <div class="grid grid-cols-2 gap-4">
+      <div><label class="block text-xs text-slate-500 mb-1">Current Password</label>
+        <input id="cur_pw" type="password" class="w-full bg-slate-900/60 border border-slate-600/50 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#00B5AD]/50"/></div>
+      <div><label class="block text-xs text-slate-500 mb-1">New Password</label>
+        <input id="new_pw" type="password" class="w-full bg-slate-900/60 border border-slate-600/50 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#00B5AD]/50"/></div>
+    </div>
+    <button onclick="changePw()" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm transition">Update password</button>
+  </div>
+
+  <div class="flex items-center justify-between pt-2">
+    <button onclick="saveProfile()" class="px-6 py-2.5 bg-[#00B5AD] hover:bg-[#00B5AD]/80 text-[#0D1B3E] font-bold rounded-lg text-sm transition">Save changes</button>
+    <button onclick="if(confirm('Delete your account? This cannot be undone.')) fetch('/api/user/account',{method:'DELETE'}).then(()=>location.href='/login')" class="text-xs text-red-400 hover:text-red-300 transition">Delete account</button>
+  </div>
+</div>
+<script>
+async function saveProfile() {
+  const body = { display_name: document.getElementById('display_name').value, phone: document.getElementById('phone').value, billing_name: document.getElementById('billing_name').value, company_name: document.getElementById('company_name').value, billing_address: document.getElementById('billing_address').value, billing_vat: document.getElementById('billing_vat').value, classified_mode: document.getElementById('classified_mode').checked };
+  const r = await fetch('/api/user/profile', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+  if (r.ok) { document.getElementById('success-msg').classList.remove('hidden'); setTimeout(()=>document.getElementById('success-msg').classList.add('hidden'),3000); }
+}
+async function changePw() {
+  const r = await fetch('/api/auth/change-password', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ current_password: document.getElementById('cur_pw').value, new_password: document.getElementById('new_pw').value }) });
+  alert(r.ok ? 'Password updated.' : 'Incorrect current password.');
+}
+</script>
+{% endblock %}

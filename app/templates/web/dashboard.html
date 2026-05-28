@@ -1,0 +1,66 @@
+{% extends "web/_base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="space-y-8">
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-white">Welcome, {{ user.display_name }}</h1>
+      <p class="text-slate-400 text-sm mt-1">{{ user.tier | capitalize }} plan · {{ user.email }}</p>
+    </div>
+    <a href="/" class="px-5 py-2.5 bg-[#00B5AD] hover:bg-[#00B5AD]/80 text-[#0D1B3E] font-bold rounded-lg text-sm transition">+ New Generation</a>
+  </div>
+
+  <!-- Stats row -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    {% for label, value, sub, color in [
+      ('Credits Remaining', user.credit_balance, user.tier ~ ' plan', '#00B5AD'),
+      ('Used This Month',   user.credits_used_month, 'generations', '#6B3FA0'),
+      ('Total Used',        user.credits_used_total, 'all time', '#64748b'),
+      ('Account Type',      user.account_type | replace('_',' ') | title, user.team_id and 'In a team' or 'Individual', '#64748b'),
+    ] %}
+    <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-5">
+      <div class="text-xs text-slate-500 mb-1">{{ label }}</div>
+      <div class="text-2xl font-bold" style="color:{{ color }}">{{ value }}</div>
+      <div class="text-xs text-slate-600 mt-1">{{ sub }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Quick actions -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+    {% for label, href, icon in [
+      ('Generate Artifacts', '/', '✅'),
+      ('Manage Credits', '/credits', '⚡'),
+      ('Team Settings', '/team', '👥'),
+      ('Invoices', '/invoices', '🧾'),
+    ] %}
+    <a href="{{ href }}" class="bg-slate-800/60 border border-slate-700/50 hover:border-[#00B5AD]/40 rounded-xl p-4 flex items-center gap-3 transition group">
+      <span class="text-2xl">{{ icon }}</span>
+      <span class="text-sm font-medium text-slate-300 group-hover:text-white">{{ label }}</span>
+    </a>
+    {% endfor %}
+  </div>
+
+  <!-- Recent credit activity -->
+  <div>
+    <h2 class="text-sm font-semibold text-slate-400 mb-3">Recent Activity</h2>
+    {% if recent_txns %}
+    <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl overflow-hidden">
+      {% for txn in recent_txns %}
+      <div class="flex items-center justify-between px-5 py-3 border-b border-slate-700/30 last:border-0">
+        <div>
+          <div class="text-sm text-slate-200">{{ txn.description or txn.txn_type | replace('_',' ') | title }}</div>
+          <div class="text-xs text-slate-600">{{ txn.created_at[:10] }}</div>
+        </div>
+        <div class="text-sm font-bold {% if txn.amount > 0 %}text-emerald-400{% else %}text-slate-400{% endif %}">
+          {% if txn.amount > 0 %}+{% endif %}{{ txn.amount }} credits
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-8 text-center text-slate-600 text-sm">No activity yet</div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

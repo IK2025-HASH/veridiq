@@ -1,0 +1,49 @@
+{% extends "web/_base.html" %}
+{% block title %}Set Up 2FA{% endblock %}
+{% block content %}
+<div class="max-w-md mx-auto space-y-6">
+  <h1 class="text-2xl font-bold text-white">Set Up Two-Factor Authentication</h1>
+  <div id="error-box" class="hidden bg-red-900/30 border border-red-500/30 rounded-lg p-3 text-sm text-red-300"></div>
+
+  <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-6 space-y-5">
+    <div class="flex items-start gap-3 bg-[#00B5AD]/5 border border-[#00B5AD]/20 rounded-lg p-3">
+      <span class="text-[#00B5AD] mt-0.5">ℹ️</span>
+      <p class="text-xs text-slate-400">Use Google Authenticator, Authy, or any TOTP app. Scan the QR code or enter the secret key manually.</p>
+    </div>
+
+    <!-- QR Code (rendered client-side from URI) -->
+    <div class="text-center">
+      <div id="qr-container" class="inline-block p-4 bg-white rounded-xl"></div>
+    </div>
+
+    <!-- Manual entry -->
+    <div>
+      <p class="text-xs text-slate-500 mb-2">Or enter this key manually in your app:</p>
+      <div class="flex items-center gap-2">
+        <code class="flex-1 bg-slate-900/60 border border-slate-700/50 rounded-lg px-3 py-2 text-xs font-mono text-[#00B5AD] tracking-widest break-all">{{ totp_secret }}</code>
+        <button onclick="navigator.clipboard.writeText('{{ totp_secret }}').then(()=>this.textContent='Copied!')" class="text-xs text-slate-500 hover:text-[#00B5AD] transition whitespace-nowrap">Copy</button>
+      </div>
+    </div>
+
+    <!-- Verify -->
+    <div>
+      <label class="block text-xs font-medium text-slate-400 mb-1.5">Enter the 6-digit code from your app to confirm</label>
+      <input id="code" type="text" maxlength="6" placeholder="000000" inputmode="numeric"
+        class="w-full text-center text-2xl tracking-[0.5em] font-mono bg-slate-900/60 border border-slate-600/50 rounded-lg px-4 py-3 text-white placeholder-slate-700 focus:outline-none focus:border-[#00B5AD]/60"/>
+    </div>
+    <button onclick="enable2FA()" class="w-full py-3 bg-[#00B5AD] hover:bg-[#00B5AD]/80 text-[#0D1B3E] font-bold rounded-lg text-sm transition">Enable 2FA →</button>
+  </div>
+  <a href="/security" class="block text-center text-xs text-slate-500 hover:text-slate-300">← Back to security settings</a>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+new QRCode(document.getElementById('qr-container'),{text:'{{ totp_uri }}',width:180,height:180,colorDark:'#000000',colorLight:'#ffffff'});
+async function enable2FA(){
+  const r=await fetch('/api/auth/2fa/enable',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({code:document.getElementById('code').value})});
+  const d=await r.json();
+  if(r.ok){alert('2FA enabled successfully!');location.href='/security';}
+  else{const e=document.getElementById('error-box');e.textContent=d.detail||'Invalid code';e.classList.remove('hidden');}
+}
+document.addEventListener('keydown',e=>{if(e.key==='Enter')enable2FA();});
+</script>
+{% endblock %}

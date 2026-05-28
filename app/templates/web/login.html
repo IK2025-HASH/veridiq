@@ -1,0 +1,86 @@
+{% extends "web/_base.html" %}
+{% block title %}Sign In{% endblock %}
+{% block content %}
+<div class="max-w-md mx-auto">
+  <div class="text-center mb-8">
+    <h1 class="text-3xl font-bold text-white mb-2">Welcome back</h1>
+    <p class="text-slate-400 text-sm">Sign in to Verid-iq</p>
+  </div>
+  <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-8 space-y-5">
+    <div id="error-box" class="hidden bg-red-900/30 border border-red-500/30 rounded-lg p-3 text-sm text-red-300"></div>
+    <div id="success-box" class="hidden bg-emerald-900/30 border border-emerald-500/30 rounded-lg p-3 text-sm text-emerald-300"></div>
+
+    {% if linkedin_enabled %}
+    <a href="/auth/linkedin" class="flex items-center justify-center gap-3 w-full py-3 bg-[#0A66C2] hover:bg-[#0A66C2]/80 text-white font-semibold rounded-lg text-sm transition">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+      Continue with LinkedIn
+    </a>
+    <div class="flex items-center gap-3 text-slate-600 text-xs">
+      <div class="flex-1 h-px bg-slate-700"></div><span>or sign in with email</span><div class="flex-1 h-px bg-slate-700"></div>
+    </div>
+    {% endif %}
+
+    <!-- Normal login -->
+    <div id="login-form" class="space-y-4">
+      <div>
+        <label class="block text-xs font-medium text-slate-400 mb-1.5">Email address</label>
+        <input id="email" type="email" placeholder="you@company.com" autocomplete="email"
+          class="w-full bg-slate-900/60 border border-slate-600/50 rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-[#00B5AD]/60 transition"/>
+      </div>
+      <div>
+        <div class="flex items-center justify-between mb-1.5">
+          <label class="text-xs font-medium text-slate-400">Password</label>
+          <a href="/auth/forgot-password" class="text-xs text-[#00B5AD] hover:underline">Forgot password?</a>
+        </div>
+        <div class="relative">
+          <input id="password" type="password" placeholder="••••••••" autocomplete="current-password"
+            class="w-full bg-slate-900/60 border border-slate-600/50 rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-[#00B5AD]/60 transition"/>
+          <button type="button" onclick="togglePw()" class="absolute right-3 top-2.5 text-slate-500 hover:text-slate-300 text-xs">Show</button>
+        </div>
+      </div>
+      <button onclick="doLogin()" class="w-full py-3 bg-[#00B5AD] hover:bg-[#00B5AD]/80 text-[#0D1B3E] font-bold rounded-lg text-sm transition">Sign in →</button>
+    </div>
+
+    <!-- 2FA step (hidden initially) -->
+    <div id="twofa-form" class="hidden space-y-4">
+      <div class="text-center">
+        <div class="text-2xl mb-2">🔐</div>
+        <p class="text-sm text-slate-300 font-medium">Two-factor authentication</p>
+        <p class="text-xs text-slate-500 mt-1">Enter the 6-digit code from your authenticator app</p>
+      </div>
+      <input id="twofa-code" type="text" maxlength="6" placeholder="000000" inputmode="numeric"
+        class="w-full text-center text-2xl tracking-[0.5em] font-mono bg-slate-900/60 border border-slate-600/50 rounded-lg px-4 py-3 text-white placeholder-slate-700 focus:outline-none focus:border-[#00B5AD]/60"/>
+      <button onclick="verify2FA()" class="w-full py-3 bg-[#00B5AD] hover:bg-[#00B5AD]/80 text-[#0D1B3E] font-bold rounded-lg text-sm transition">Verify →</button>
+      <button onclick="back2FA()" class="w-full py-2 text-xs text-slate-500 hover:text-slate-300">← Back to sign in</button>
+    </div>
+
+    <p class="text-center text-xs text-slate-500">No account? <a href="/register" class="text-[#00B5AD] hover:underline">Get started free</a></p>
+  </div>
+</div>
+<script>
+let pendingToken = null;
+function togglePw(){const f=document.getElementById('password');f.type=f.type==='password'?'text':'password';}
+async function doLogin(){
+  const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:document.getElementById('email').value,password:document.getElementById('password').value})});
+  const d=await r.json();
+  if(r.ok){
+    if(d.requires_2fa){pendingToken=d.pending_token;document.getElementById('login-form').classList.add('hidden');document.getElementById('twofa-form').classList.remove('hidden');}
+    else location.href=d.redirect;
+  } else showErr(d.detail||'Login failed');
+}
+async function verify2FA(){
+  const r=await fetch('/api/auth/2fa/verify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pending_token:pendingToken,code:document.getElementById('twofa-code').value})});
+  const d=await r.json();
+  if(r.ok)location.href=d.redirect;
+  else showErr(d.detail||'Invalid code');
+}
+function back2FA(){document.getElementById('twofa-form').classList.add('hidden');document.getElementById('login-form').classList.remove('hidden');pendingToken=null;}
+function showErr(m){const e=document.getElementById('error-box');e.textContent=m;e.classList.remove('hidden');}
+// Show messages from URL params
+const p=new URLSearchParams(location.search);
+if(p.get('message')==='password_reset'){const s=document.getElementById('success-box');s.textContent='Password reset successfully. Sign in with your new password.';s.classList.remove('hidden');}
+if(p.get('message')==='password_changed'){const s=document.getElementById('success-box');s.textContent='Password changed. Please sign in again.';s.classList.remove('hidden');}
+if(p.get('error')){showErr('Login error: '+p.get('error').replace(/_/g,' '));}
+document.addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('twofa-form').classList.contains('hidden')?doLogin():verify2FA();});
+</script>
+{% endblock %}

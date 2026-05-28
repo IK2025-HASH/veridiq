@@ -1,0 +1,88 @@
+{% extends "web/_base.html" %}
+{% block title %}Credits{% endblock %}
+{% block content %}
+<div class="space-y-8">
+  <div class="flex items-center justify-between">
+    <h1 class="text-2xl font-bold text-white">Credits</h1>
+    <div class="flex items-center gap-2 bg-slate-800 border border-slate-700/50 rounded-xl px-5 py-3">
+      <span class="text-[#00B5AD] text-lg">⚡</span>
+      <span class="text-3xl font-bold text-white">{{ user.credit_balance }}</span>
+      <span class="text-slate-500 text-sm">remaining · {{ tier_labels.get(user.tier, 'Free') }} plan</span>
+    </div>
+  </div>
+
+  <!-- Credit costs reference -->
+  <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-6">
+    <h2 class="text-sm font-semibold text-[#00B5AD] mb-4">Credit Costs</h2>
+    <div class="grid grid-cols-3 gap-4 text-xs">
+      <div class="space-y-2">
+        <div class="text-slate-500 font-medium mb-2">Layer 1 — Your Context</div>
+        <div class="flex justify-between text-slate-300"><span>Any generation (context hit)</span><span class="font-bold text-emerald-400">0 credits</span></div>
+      </div>
+      <div class="space-y-2">
+        <div class="text-slate-500 font-medium mb-2">Layer 2 — Platform Knowledge</div>
+        <div class="flex justify-between text-slate-300"><span>Any generation (knowledge hit)</span><span class="font-bold text-[#00B5AD]">1 credit</span></div>
+      </div>
+      <div class="space-y-2">
+        <div class="text-slate-500 font-medium mb-2">Layer 3 — AI Generation</div>
+        {% for label, cost in [('Defect / AC Review / Charter','3'),('Test Cases / BDD / Negative','4'),('Test Plan','6'),('Each additional (n>1)','+2')] %}
+        <div class="flex justify-between text-slate-300"><span>{{ label }}</span><span class="font-bold text-slate-200">{{ cost }}</span></div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Top-up packs -->
+  <div>
+    <h2 class="text-sm font-semibold text-slate-400 mb-4">Top Up</h2>
+    <div class="grid grid-cols-3 gap-4">
+      {% for pack_key, pack in packs.items() %}
+      <div class="bg-slate-800/60 border border-slate-700/50 hover:border-[#00B5AD]/40 rounded-xl p-5 text-center transition">
+        <div class="text-2xl font-bold text-white mb-1">{{ pack.credits }}</div>
+        <div class="text-xs text-slate-500 mb-3">credits</div>
+        <div class="text-lg font-bold text-[#00B5AD] mb-1">£{{ "%.2f"|format(pack.net_pence/100) }}</div>
+        <div class="text-xs text-slate-600 mb-4">+ VAT</div>
+        <button onclick="topup('{{ pack_key }}')" class="w-full py-2 bg-[#00B5AD] hover:bg-[#00B5AD]/80 text-[#0D1B3E] font-bold rounded-lg text-xs transition">Buy now</button>
+      </div>
+      {% endfor %}
+    </div>
+    <p class="text-xs text-slate-600 mt-3">All prices exclude 20% UK VAT. Invoices generated automatically. Secure payment via Stripe (coming soon — contact hello@networklogic.uk to top up manually).</p>
+  </div>
+
+  <!-- Transaction history -->
+  <div>
+    <h2 class="text-sm font-semibold text-slate-400 mb-3">Transaction History</h2>
+    {% if transactions %}
+    <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl overflow-hidden">
+      <table class="w-full text-xs">
+        <thead><tr class="border-b border-slate-700/50">
+          {% for h in ['Date','Description','Type','Credits','Balance After'] %}
+          <th class="text-left px-4 py-3 text-slate-500 font-medium">{{ h }}</th>{% endfor %}
+        </tr></thead>
+        <tbody>
+        {% for t in transactions %}
+        <tr class="border-b border-slate-700/20 last:border-0 hover:bg-slate-700/20">
+          <td class="px-4 py-3 text-slate-400">{{ t.created_at[:10] }}</td>
+          <td class="px-4 py-3 text-slate-200">{{ t.description or '-' }}</td>
+          <td class="px-4 py-3 text-slate-500">{{ t.txn_type | replace('_',' ') | title }}</td>
+          <td class="px-4 py-3 font-bold {% if t.amount > 0 %}text-emerald-400{% else %}text-slate-400{% endif %}">{% if t.amount > 0 %}+{% endif %}{{ t.amount }}</td>
+          <td class="px-4 py-3 text-slate-300">{{ t.balance_after }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-8 text-center text-slate-600 text-sm">No transactions yet</div>
+    {% endif %}
+  </div>
+</div>
+<script>
+async function topup(pack) {
+  const r = await fetch('/api/credits/topup', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({pack}) });
+  const d = await r.json();
+  if (r.ok) { alert('Credits added! New balance: ' + d.new_balance + ' · Invoice: ' + d.invoice_number); location.reload(); }
+  else alert('Top-up failed: ' + (d.detail || 'unknown error'));
+}
+</script>
+{% endblock %}

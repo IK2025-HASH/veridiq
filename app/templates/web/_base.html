@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>{% block title %}Verid-iq{% endblock %} — Network Logic</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config={theme:{extend:{colors:{navy:'#0D1B3E',teal:'#00B5AD',purple:'#6B3FA0'}}}}</script>
+  <style>body{font-family:'Inter',sans-serif;}@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');</style>
+</head>
+<body class="bg-[#0D1B3E] text-slate-200 min-h-screen flex flex-col">
+
+<!-- NAV -->
+<nav class="border-b border-slate-700/50 bg-[#0D1B3E]/95 backdrop-blur sticky top-0 z-50">
+  <div class="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
+    <a href="{% if user %}/dashboard{% else %}/{% endif %}" class="text-xl font-bold">
+      <span class="text-white">Verid</span><span class="text-[#00B5AD]">-iq</span>
+    </a>
+    {% if user %}
+    <div class="flex items-center gap-1 text-xs">
+      <a href="/dashboard" class="px-3 py-1.5 rounded hover:bg-slate-700/50 text-slate-300 hover:text-white transition">Dashboard</a>
+      <a href="/" class="px-3 py-1.5 rounded hover:bg-slate-700/50 text-slate-300 hover:text-white transition">Generate</a>
+      <a href="/credits" class="px-3 py-1.5 rounded hover:bg-slate-700/50 text-slate-300 hover:text-white transition">Credits</a>
+      <a href="/team" class="px-3 py-1.5 rounded hover:bg-slate-700/50 text-slate-300 hover:text-white transition">Team</a>
+      <a href="/invoices" class="px-3 py-1.5 rounded hover:bg-slate-700/50 text-slate-300 hover:text-white transition">Invoices</a>
+      {% if user.is_admin %}<a href="/admin" class="px-3 py-1.5 rounded bg-purple/20 text-purple-300 hover:bg-purple/30 transition">Admin</a>{% endif %}
+      <div class="ml-2 flex items-center gap-2 border-l border-slate-700 pl-3">
+        <div class="flex items-center gap-1.5 bg-slate-800 rounded-lg px-2.5 py-1.5 border border-slate-600/50">
+          <span class="text-[#00B5AD] text-xs">⚡</span>
+          <span class="text-white font-bold text-xs" id="nav-credits">{{ user.credit_balance }}</span>
+        </div>
+        <a href="/profile" class="w-7 h-7 rounded-full bg-[#00B5AD]/20 border border-[#00B5AD]/40 flex items-center justify-center text-xs font-bold text-[#00B5AD] hover:bg-[#00B5AD]/30 transition">
+          {{ user.display_name[0].upper() }}
+        </a>
+        <button onclick="fetch('/api/auth/logout',{method:'POST'}).then(()=>location.href='/login')"
+          class="text-slate-500 hover:text-slate-300 text-xs transition">Sign out</button>
+      </div>
+    </div>
+    {% else %}
+    <div class="flex items-center gap-2 text-xs">
+      <a href="/login" class="px-3 py-1.5 rounded border border-slate-600 text-slate-300 hover:border-[#00B5AD]/50 transition">Sign in</a>
+      <a href="/register" class="px-3 py-1.5 rounded bg-[#00B5AD] text-[#0D1B3E] font-bold hover:bg-[#00B5AD]/80 transition">Get started free</a>
+    </div>
+    {% endif %}
+  </div>
+</nav>
+
+<main class="flex-1 max-w-5xl mx-auto w-full px-6 py-10">
+{% block content %}{% endblock %}
+</main>
+
+<footer class="border-t border-slate-800 py-6 text-center text-xs text-slate-600">
+  © 2026 Network Logic Limited · <a href="/terms" class="hover:text-slate-400">Terms</a> · <a href="/privacy" class="hover:text-slate-400">Privacy</a>
+</footer>
+</body>
+</html>
