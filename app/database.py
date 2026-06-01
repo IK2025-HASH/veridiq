@@ -41,19 +41,16 @@ async def get_db():
 async def create_tables():
     from app.models.settings import AppSetting  # noqa: F401
 
-    if _is_sqlite:
-        # SQLite on Windows: run_sync requires greenlet which has DLL issues.
-        # Use a plain synchronous engine in a thread instead — no greenlet needed.
-        def _sync_create():
-            sync_url = settings.DATABASE_URL.replace("sqlite+aiosqlite://", "sqlite:///")
-            sync_engine = _create_sync_engine(sync_url, echo=False)
-            Base.metadata.create_all(sync_engine, tables=[AppSetting.__table__])
-            sync_engine.dispose()
+    # Always use a sync engine in a thread — avoids greenlet entirely on all platforms.
+    def _sync_create():
+        sync_url = (
+            settings.DATABASE_URL
+            .replace("sqlite+aiosqlite://", "sqlite:///")
+            .replace("postgresql+asyncpg://", "postgresql+psycopg2://")
+            .replace("postgres+asyncpg://", "postgresql+psycopg2://")
+        )
+        sync_engine = _create_sync_engine(sync_url, echo=False)
+        Base.metadata.create_all(sync_engine, tables=[AppSetting.__table__])
+        sync_engine.dispose()
 
-        await asyncio.to_thread(_sync_create)
-    else:
-        # PostgreSQL on Railway — greenlet is available, use async run_sync normally
-        async with engine.begin() as conn:
-            await conn.run_sync(
-                lambda c: Base.metadata.create_all(c, tables=[AppSetting.__table__])
-            )
+    await asyncio.to_thread(_sync_create)
