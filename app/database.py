@@ -1,5 +1,7 @@
 # Copyright © 2026 Network Logic Limited. All rights reserved.
 
+import asyncio
+from sqlalchemy import create_engine as _create_sync_engine
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase
 from app.config import settings
@@ -37,10 +39,21 @@ async def get_db():
 
 
 async def create_tables():
-    # Only create the settings table here — it uses cross-DB compatible types.
-    # User/generation models are PostgreSQL-specific and created via Alembic on Railway.
     from app.models.settings import AppSetting  # noqa: F401
-    async with engine.begin() as conn:
-        await conn.run_sync(
-            lambda c: Base.metadata.create_all(c, tables=[AppSetting.__table__])
-        )
+
+    if _is_sqlite:
+        # SQLite on Windows: run_sync requires greenlet which has DLL issues.
+        # Use a plain synchronous engine in a thread instead — no greenlet needed.
+        def _sync_create():
+            sync_url = settings.DATABASE_URL.replace("sqlite+aiosqlite://", "sqlite:///")
+            sync_engine = _create_sync_engine(sync_url, echo=False)
+            Base.metadata.create_all(sync_engine, tables=[AppSetting.__table__])
+            sync_engine.dispose()
+
+        await asyncio.to_thread(_sync_create)
+    else:
+        # PostgreSQL on Railway — greenlet is available, use async run_sync normally
+        async with engine.begin() as conn:
+            await conn.run_sync(
+                lambda c: Base.metadata.create_all(c, tables=[AppSetting.__table__])
+            )
