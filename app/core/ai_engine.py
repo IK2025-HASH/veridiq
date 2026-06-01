@@ -12,7 +12,6 @@ from app.core.prompt_templates import SYSTEM_ROLES, GENERATION_INSTRUCTIONS
 
 logger = logging.getLogger(__name__)
 
-# Generation types that support n= quantity
 BATCH_TYPES = {
     "TEST_CASES",
     "BDD_SCENARIOS",
@@ -20,7 +19,6 @@ BATCH_TYPES = {
     "EXPLORATORY_CHARTER",
 }
 
-# Human-readable labels for the UI
 GENERATION_LABELS = {
     "TEST_CASES":           "Test Cases",
     "BDD_SCENARIOS":        "BDD Scenarios",
@@ -32,17 +30,24 @@ GENERATION_LABELS = {
     "REGRESSION_IMPACT":    "Regression Impact Analysis",
 }
 
-# Icons for the UI (emoji — no external dependency)
 GENERATION_ICONS = {
     "TEST_CASES":           "✅",
-    "BDD_SCENARIOS":        "🥒",
+    "BDD_SCENARIOS":        "\U0001f952",
     "NEGATIVE_TEST_CASES":  "❌",
-    "TEST_PLAN":            "📋",
-    "DEFECT_REPORT":        "🐛",
-    "EXPLORATORY_CHARTER":  "🔍",
-    "AC_REVIEW":            "🔎",
-    "REGRESSION_IMPACT":    "🔄",
+    "TEST_PLAN":            "\U0001f4cb",
+    "DEFECT_REPORT":        "\U0001f41b",
+    "EXPLORATORY_CHARTER":  "\U0001f50d",
+    "AC_REVIEW":            "\U0001f50e",
+    "REGRESSION_IMPACT":    "\U0001f504",
 }
+
+
+async def _get_client() -> tuple[anthropic.AsyncAnthropic, str]:
+    """Return an Anthropic client and model name, reading config from DB first."""
+    from app.core import settings_service
+    api_key = await settings_service.get("anthropic_api_key") or settings.ANTHROPIC_API_KEY
+    model = await settings_service.get("anthropic_model") or settings.ANTHROPIC_MODEL
+    return anthropic.AsyncAnthropic(api_key=api_key), model
 
 
 def build_prompt(
@@ -51,17 +56,9 @@ def build_prompt(
     quantity: int = 1,
     issue_context: dict | None = None,
 ) -> tuple[str, str]:
-    """
-    Assemble the system prompt and user message for a generation call.
-    Returns (system_prompt, user_message).
-    """
-    # Layer 0 — Knowledge chunks
     knowledge = knowledge_store.get_relevant_chunks(generation_type, user_input)
-
-    # Layer 1 — System role
     system_role = SYSTEM_ROLES.get(generation_type, "You are a professional software tester.")
 
-    # Build system prompt
     if knowledge:
         system_prompt = f"""{system_role}
 
@@ -73,7 +70,6 @@ The following professional testing knowledge informs your generation. Apply it n
     else:
         system_prompt = system_role
 
-    # Layer 2 — Issue context (Jira Connect, future)
     context_block = ""
     if issue_context:
         context_block = f"""
@@ -85,16 +81,11 @@ Acceptance Criteria: {issue_context.get('acceptance_criteria', 'N/A')}
 
 """
 
-    # Layer 3 — Generation instructions
     instructions_template = GENERATION_INSTRUCTIONS.get(generation_type, "")
-    n_label = str(quantity)
-
-    # Replace placeholders
-    instructions = instructions_template.replace("{n}", n_label)
+    instructions = instructions_template.replace("{n}", str(quantity))
     for i in range(1, quantity + 1):
         instructions = instructions.replace(f"{{{i}}}", str(i))
 
-    # Build final user message
     user_message = f"""{context_block}USER INPUT:
 {user_input}
 
@@ -110,18 +101,18 @@ async def stream_generation(
     quantity: int = 1,
     issue_context: dict | None = None,
 ) -> AsyncGenerator[str, None]:
-    """
-    Stream AI generation output token by token.
-    Yields text chunks as they arrive from Anthropic.
-    """
-    client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+    client, model = await _get_client()
+    if not client.api_key:
+        yield "\n\n**Error:** Anthropic API key not configured. Visit /admin/settings to add your key."
+        return
+
     system_prompt, user_message = build_prompt(
         generation_type, user_input, quantity, issue_context
     )
 
     try:
         async with client.messages.stream(
-            model=settings.ANTHROPIC_MODEL,
+            model=model,
             max_tokens=settings.MAX_TOKENS,
             system=system_prompt,
             messages=[{"role": "user", "content": user_message}],
@@ -146,25 +137,18 @@ async def generate_full(
     quantity: int = 1,
     issue_context: dict | None = None,
 ) -> tuple[str, int]:
-    """
-    Generate a complete (non-streaming) response.
-    Returns (full_text, duration_ms).
-    """
-    client = anthropic.AsyncAnthropic(api_key=settings.ANTHROPIC_API_KEY)
+    client, model = await _get_client()
     system_prompt, user_message = build_prompt(
         generation_type, user_input, quantity, issue_context
     )
 
     start = time.monotonic()
-
     response = await client.messages.create(
-        model=settings.ANTHROPIC_MODEL,
+        model=model,
         max_tokens=settings.MAX_TOKENS,
         system=system_prompt,
         messages=[{"role": "user", "content": user_message}],
     )
-
     duration_ms = int((time.monotonic() - start) * 1000)
     full_text = response.content[0].text if response.content else ""
-
     return full_text, duration_ms

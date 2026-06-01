@@ -16,8 +16,10 @@ AsyncSessionLocal = async_sessionmaker(
     expire_on_commit=False,
 )
 
+
 class Base(DeclarativeBase):
     pass
+
 
 async def get_db():
     async with AsyncSessionLocal() as session:
@@ -30,7 +32,9 @@ async def get_db():
         finally:
             await session.close()
 
+
 async def create_tables():
     async with engine.begin() as conn:
-        from app.models import generation, artifact
+        from app.models import generation, user
+        from app.models import settings as settings_models
         await conn.run_sync(Base.metadata.create_all)
