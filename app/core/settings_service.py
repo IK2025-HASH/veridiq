@@ -13,6 +13,12 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 ENCRYPTED_KEYS = {"anthropic_api_key", "smtp_password", "linkedin_client_secret"}
+# Key prefixes that are also encrypted (e.g. jira_api_token__{user_id})
+_ENCRYPTED_PREFIXES = ("jira_api_token__",)
+
+
+def _is_sensitive(key: str) -> bool:
+    return key in ENCRYPTED_KEYS or any(key.startswith(p) for p in _ENCRYPTED_PREFIXES)
 
 _cache: dict[str, str] = {}
 _cache_loaded = False
@@ -54,7 +60,7 @@ def _sync_load_all() -> dict:
             rows = session.execute(text("SELECT key, value FROM app_settings")).fetchall()
             result = {}
             for key, value in rows:
-                if key in ENCRYPTED_KEYS and value:
+                if _is_sensitive(key) and value:
                     result[key] = _decrypt(value)
                 else:
                     result[key] = value or ""
@@ -73,7 +79,7 @@ def _sync_set_many(data: dict) -> None:
     try:
         with Session(engine) as session:
             for key, value in data.items():
-                stored = _encrypt(value) if key in ENCRYPTED_KEYS else value
+                stored = _encrypt(value) if _is_sensitive(key) else value
                 existing = session.execute(
                     text("SELECT id FROM app_settings WHERE key = :k"), {"k": key}
                 ).fetchone()

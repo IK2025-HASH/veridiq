@@ -50,6 +50,16 @@ async def connect_jira(request: Request, body: JiraConnectRequest):
     user["jira_email"] = body.jira_email
     user["jira_api_token"] = body.api_token
     user["jira_display_name"] = result.get("display_name", "")
+
+    # Persist so credentials survive server restarts
+    from app.core import settings_service
+    await settings_service.set_many({
+        f"jira_url__{user['id']}":          user["jira_url"],
+        f"jira_email__{user['id']}":         user["jira_email"],
+        f"jira_api_token__{user['id']}":     user["jira_api_token"],
+        f"jira_display_name__{user['id']}":  user["jira_display_name"],
+    })
+
     return {"ok": True, "display_name": result.get("display_name", "")}
 
 
@@ -58,6 +68,14 @@ async def disconnect_jira(request: Request):
     user = require_user(request)
     for key in ("jira_url", "jira_email", "jira_api_token", "jira_display_name"):
         user.pop(key, None)
+
+    from app.core import settings_service
+    await settings_service.set_many({
+        f"jira_url__{user['id']}":         "",
+        f"jira_email__{user['id']}":        "",
+        f"jira_api_token__{user['id']}":    "",
+        f"jira_display_name__{user['id']}": "",
+    })
     return {"ok": True}
 
 
