@@ -53,11 +53,15 @@ class JiraClient:
         return projects
 
     async def search_issues(self, project_key: str, max_results: int = 50) -> list[dict]:
-        """Return recent issues for a project (newest first)."""
+        """Return recent issues for a project (newest first).
+
+        Uses the new /rest/api/3/search/jql endpoint — the old
+        /rest/api/3/search was deprecated by Atlassian and now returns 410 Gone.
+        """
         jql = f'project = "{project_key}" ORDER BY updated DESC'
         async with httpx.AsyncClient(timeout=15.0) as client:
             r = await client.get(
-                f"{self.base_url}/rest/api/3/search",
+                f"{self.base_url}/rest/api/3/search/jql",
                 headers=self._headers,
                 params={
                     "jql": jql,
