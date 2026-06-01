@@ -45,7 +45,7 @@ async def create_tables():
     def _sync_create():
         sync_url = (
             settings.DATABASE_URL
-            .replace("sqlite+aiosqlite://", "sqlite:///")
+            .replace("sqlite+aiosqlite:///", "sqlite:///")
             .replace("postgresql+asyncpg://", "postgresql+psycopg2://")
             .replace("postgres+asyncpg://", "postgresql+psycopg2://")
         )
