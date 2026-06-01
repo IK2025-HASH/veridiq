@@ -1,16 +1,14 @@
 # Copyright © 2026 Network Logic Limited. All rights reserved.
 # Reads/writes app configuration from the database.
-# Sensitive values are encrypted at rest using a key derived from SECRET_KEY.
+# Uses synchronous SQLAlchemy in asyncio.to_thread to avoid greenlet on Windows.
 
+import asyncio
 import base64
 import hashlib
 import logging
 from typing import Optional
-from sqlalchemy import select
-from cryptography.fernet import Fernet
 
 from app.config import settings
-from app.database import AsyncSessionLocal
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +18,18 @@ _cache: dict[str, str] = {}
 _cache_loaded = False
 
 
-def _get_cipher() -> Fernet:
+def _get_db_url() -> str:
+    url = settings.DATABASE_URL
+    return (
+        url
+        .replace("sqlite+aiosqlite:///", "sqlite:///")
+        .replace("postgresql+asyncpg://", "postgresql+psycopg2://")
+        .replace("postgres+asyncpg://", "postgresql+psycopg2://")
+    )
+
+
+def _get_cipher():
+    from cryptography.fernet import Fernet
     raw = hashlib.sha256(settings.SECRET_KEY.encode()).digest()
     return Fernet(base64.urlsafe_b64encode(raw))
 
@@ -36,24 +45,61 @@ def _decrypt(value: str) -> str:
         return value
 
 
-async def load_all() -> None:
-    """Load all settings from DB into the in-memory cache."""
-    global _cache, _cache_loaded
-    from app.models.settings import AppSetting
+def _sync_load_all() -> dict:
+    from sqlalchemy import create_engine, text
+    from sqlalchemy.orm import Session
+    engine = create_engine(_get_db_url(), echo=False)
     try:
-        async with AsyncSessionLocal() as db:
-            result = await db.execute(select(AppSetting))
-            rows = result.scalars().all()
-            _cache = {}
-            for row in rows:
-                if row.key in ENCRYPTED_KEYS and row.value:
-                    _cache[row.key] = _decrypt(row.value)
+        with Session(engine) as session:
+            rows = session.execute(text("SELECT key, value FROM app_settings")).fetchall()
+            result = {}
+            for key, value in rows:
+                if key in ENCRYPTED_KEYS and value:
+                    result[key] = _decrypt(value)
                 else:
-                    _cache[row.key] = row.value or ""
-        _cache_loaded = True
+                    result[key] = value or ""
+            return result
+    except Exception as e:
+        logger.warning(f"settings load failed: {e}")
+        return {}
+    finally:
+        engine.dispose()
+
+
+def _sync_set_many(data: dict) -> None:
+    from sqlalchemy import create_engine, text
+    from sqlalchemy.orm import Session
+    engine = create_engine(_get_db_url(), echo=False)
+    try:
+        with Session(engine) as session:
+            for key, value in data.items():
+                stored = _encrypt(value) if key in ENCRYPTED_KEYS else value
+                existing = session.execute(
+                    text("SELECT id FROM app_settings WHERE key = :k"), {"k": key}
+                ).fetchone()
+                if existing:
+                    session.execute(
+                        text("UPDATE app_settings SET value = :v, updated_at = datetime('now') WHERE key = :k"),
+                        {"v": stored, "k": key}
+                    )
+                else:
+                    import uuid
+                    session.execute(
+                        text("INSERT INTO app_settings (id, key, value, updated_at) VALUES (:id, :k, :v, datetime('now'))"),
+                        {"id": str(uuid.uuid4()), "k": key, "v": stored}
+                    )
+            session.commit()
+    finally:
+        engine.dispose()
+
+
+async def load_all() -> None:
+    global _cache, _cache_loaded
+    try:
+        _cache = await asyncio.to_thread(_sync_load_all)
     except Exception as e:
         logger.warning(f"settings_service.load_all failed: {e}")
-        _cache_loaded = True
+    _cache_loaded = True
 
 
 async def get(key: str) -> Optional[str]:
@@ -63,42 +109,17 @@ async def get(key: str) -> Optional[str]:
 
 
 async def set(key: str, value: str) -> None:
-    from app.models.settings import AppSetting
-    async with AsyncSessionLocal() as db:
-        stored = _encrypt(value) if key in ENCRYPTED_KEYS else value
-        result = await db.execute(select(AppSetting).where(AppSetting.key == key))
-        row = result.scalar_one_or_none()
-        if row:
-            row.value = stored
-        else:
-            db.add(AppSetting(key=key, value=stored))
-        await db.commit()
-    _cache[key] = value
+    await set_many({key: value})
 
 
 async def set_many(data: dict[str, str]) -> None:
-    from app.models.settings import AppSetting
-    async with AsyncSessionLocal() as db:
-        for key, value in data.items():
-            stored = _encrypt(value) if key in ENCRYPTED_KEYS else value
-            result = await db.execute(select(AppSetting).where(AppSetting.key == key))
-            row = result.scalar_one_or_none()
-            if row:
-                row.value = stored
-            else:
-                db.add(AppSetting(key=key, value=stored))
-        await db.commit()
+    await asyncio.to_thread(_sync_set_many, data)
     _cache.update(data)
 
 
 async def is_setup_complete() -> bool:
-    from app.models.settings import AppSetting
     try:
-        async with AsyncSessionLocal() as db:
-            result = await db.execute(
-                select(AppSetting).where(AppSetting.key == "setup_complete")
-            )
-            row = result.scalar_one_or_none()
-            return row is not None and row.value == "true"
+        val = await asyncio.to_thread(_sync_load_all)
+        return val.get("setup_complete") == "true"
     except Exception:
         return False
