@@ -221,8 +221,24 @@ Acceptance Criteria:
             <span id="jira-badge" class="hidden text-xs font-medium text-emerald-400">● Connected</span>
             <a href="/profile#jira" class="text-xs text-slate-600 hover:text-teal transition ml-auto">Setup →</a>
           </div>
-          <div class="flex gap-2">
-            <input id="jira-issue-key" type="text" placeholder="Issue key — e.g. PROJ-123"
+
+          <!-- Project + issue pickers (shown when connected) -->
+          <div id="jira-pickers" class="hidden space-y-2">
+            <div class="grid grid-cols-2 gap-2">
+              <select id="jira-project-select" onchange="loadProjectIssues()"
+                class="bg-slate-900/60 border border-slate-600/40 rounded-lg px-2 py-2 text-sm text-slate-200 focus:outline-none focus:border-teal/40">
+                <option value="">Loading projects…</option>
+              </select>
+              <select id="jira-issue-select" onchange="onIssueSelected()" disabled
+                class="bg-slate-900/60 border border-slate-600/40 rounded-lg px-2 py-2 text-sm text-slate-200 focus:outline-none focus:border-teal/40 disabled:opacity-50">
+                <option value="">Select a project first</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Manual issue-key fallback -->
+          <div class="flex gap-2 mt-2">
+            <input id="jira-issue-key" type="text" placeholder="…or type an issue key — e.g. PROJ-123"
               class="flex-1 bg-slate-900/60 border border-slate-600/40 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-teal/40 uppercase"
               oninput="this.value=this.value.toUpperCase()"/>
             <button onclick="importFromJira()"
@@ -392,9 +408,76 @@ Acceptance Criteria:
           const badge = document.getElementById('jira-badge');
           badge.textContent = `● Connected${data.display_name ? ' · ' + data.display_name : ''}`;
           badge.classList.remove('hidden');
-          document.querySelector('#jira-badge').nextElementSibling && null;
+          // Show project pickers and load projects
+          document.getElementById('jira-pickers').classList.remove('hidden');
+          loadProjects();
         }
       } catch(e) {}
+    }
+
+    async function loadProjects() {
+      const sel = document.getElementById('jira-project-select');
+      try {
+        const r = await fetch('/api/jira/projects');
+        const data = await r.json();
+        if (!r.ok) {
+          sel.innerHTML = `<option value="">${data.detail || 'Failed to load projects'}</option>`;
+          return;
+        }
+        if (!data.projects.length) {
+          sel.innerHTML = '<option value="">No projects found</option>';
+          return;
+        }
+        sel.innerHTML = '<option value="">Select a project…</option>' +
+          data.projects.map(p =>
+            `<option value="${p.key}">${p.key} — ${p.name}</option>`
+          ).join('');
+      } catch(e) {
+        sel.innerHTML = '<option value="">Connection error</option>';
+      }
+    }
+
+    async function loadProjectIssues() {
+      const projectKey = document.getElementById('jira-project-select').value;
+      const issueSel = document.getElementById('jira-issue-select');
+      if (!projectKey) {
+        issueSel.disabled = true;
+        issueSel.innerHTML = '<option value="">Select a project first</option>';
+        return;
+      }
+      // Pre-fill the Xray project key for later push
+      const xrayProj = document.getElementById('xray-project');
+      if (xrayProj) xrayProj.value = projectKey;
+
+      issueSel.disabled = true;
+      issueSel.innerHTML = '<option value="">Loading issues…</option>';
+      try {
+        const r = await fetch(`/api/jira/projects/${projectKey}/issues`);
+        const data = await r.json();
+        if (!r.ok) {
+          issueSel.innerHTML = `<option value="">${data.detail || 'Failed to load issues'}</option>`;
+          return;
+        }
+        if (!data.issues.length) {
+          issueSel.innerHTML = '<option value="">No issues in this project</option>';
+          return;
+        }
+        issueSel.innerHTML = '<option value="">Select an issue to import…</option>' +
+          data.issues.map(it => {
+            const label = `${it.key} · ${it.issue_type} — ${it.summary}`.substring(0, 80);
+            return `<option value="${it.key}">${label}</option>`;
+          }).join('');
+        issueSel.disabled = false;
+      } catch(e) {
+        issueSel.innerHTML = '<option value="">Connection error</option>';
+      }
+    }
+
+    function onIssueSelected() {
+      const key = document.getElementById('jira-issue-select').value;
+      if (!key) return;
+      document.getElementById('jira-issue-key').value = key;
+      importFromJira();
     }
 
     async function importFromJira() {

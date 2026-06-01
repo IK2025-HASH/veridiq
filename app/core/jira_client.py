@@ -26,6 +26,62 @@ class JiraClient:
                 "email": data.get("emailAddress", ""),
             }
 
+    async def list_projects(self) -> list[dict]:
+        """Return all projects the connected user can see."""
+        projects: list[dict] = []
+        start = 0
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            while True:
+                r = await client.get(
+                    f"{self.base_url}/rest/api/3/project/search",
+                    headers=self._headers,
+                    params={"startAt": start, "maxResults": 50, "orderBy": "name"},
+                )
+                if r.status_code == 401:
+                    raise PermissionError("Invalid Jira credentials")
+                r.raise_for_status()
+                data = r.json()
+                for p in data.get("values", []):
+                    projects.append({
+                        "key": p.get("key", ""),
+                        "name": p.get("name", ""),
+                        "type": p.get("projectTypeKey", ""),
+                    })
+                if data.get("isLast", True):
+                    break
+                start += 50
+        return projects
+
+    async def search_issues(self, project_key: str, max_results: int = 50) -> list[dict]:
+        """Return recent issues for a project (newest first)."""
+        jql = f'project = "{project_key}" ORDER BY updated DESC'
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            r = await client.get(
+                f"{self.base_url}/rest/api/3/search",
+                headers=self._headers,
+                params={
+                    "jql": jql,
+                    "maxResults": max_results,
+                    "fields": "summary,issuetype,status",
+                },
+            )
+            if r.status_code == 401:
+                raise PermissionError("Invalid Jira credentials")
+            if r.status_code == 400:
+                raise ValueError(f"Could not search project {project_key}")
+            r.raise_for_status()
+            data = r.json()
+            issues = []
+            for it in data.get("issues", []):
+                fields = it.get("fields", {})
+                issues.append({
+                    "key": it.get("key", ""),
+                    "summary": fields.get("summary", ""),
+                    "issue_type": fields.get("issuetype", {}).get("name", ""),
+                    "status": fields.get("status", {}).get("name", ""),
+                })
+            return issues
+
     def _adf_to_text(self, node) -> str:
         if isinstance(node, str):
             return node

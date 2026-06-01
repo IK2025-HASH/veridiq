@@ -73,6 +73,40 @@ async def jira_status(request: Request):
     }
 
 
+@router.get("/jira/projects")
+async def list_jira_projects(request: Request):
+    user = require_user(request)
+    if not user.get("jira_url"):
+        raise HTTPException(400, "Jira not connected — set up in Profile → Jira Connection")
+    client = JiraClient(user["jira_url"], user["jira_email"], user["jira_api_token"])
+    try:
+        projects = await client.list_projects()
+        return {"projects": projects}
+    except PermissionError as e:
+        raise HTTPException(401, str(e))
+    except Exception as e:
+        logger.error(f"Jira projects error: {e}")
+        raise _jira_error(e)
+
+
+@router.get("/jira/projects/{project_key}/issues")
+async def list_project_issues(request: Request, project_key: str):
+    user = require_user(request)
+    if not user.get("jira_url"):
+        raise HTTPException(400, "Jira not connected — set up in Profile → Jira Connection")
+    client = JiraClient(user["jira_url"], user["jira_email"], user["jira_api_token"])
+    try:
+        issues = await client.search_issues(project_key.upper())
+        return {"issues": issues}
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    except PermissionError as e:
+        raise HTTPException(401, str(e))
+    except Exception as e:
+        logger.error(f"Jira issue search error: {e}")
+        raise _jira_error(e)
+
+
 @router.get("/jira/issue/{issue_key}")
 async def get_jira_issue(request: Request, issue_key: str):
     user = require_user(request)
