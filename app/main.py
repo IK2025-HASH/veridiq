@@ -18,6 +18,7 @@ from app.core import settings_service
 from app.api import generate, web, users, auth
 from app.api.setup import router as setup_router
 from app.api.admin import router as admin_router
+from app.api.jira import router as jira_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -102,6 +103,7 @@ if static_dir.exists():
 app.include_router(setup_router)
 app.include_router(admin_router)
 app.include_router(generate.router, prefix="/api", tags=["generation"])
+app.include_router(jira_router, prefix="/api", tags=["jira"])
 app.include_router(auth.router, tags=["auth"])
 app.include_router(users.router, tags=["users"])
 app.include_router(web.router, tags=["web"])

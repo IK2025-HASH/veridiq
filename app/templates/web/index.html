@@ -213,6 +213,26 @@ Acceptance Criteria:
           </div>
         </div>
 
+        <!-- Jira Issue Import -->
+        <div class="border border-slate-700/30 rounded-lg p-3 bg-slate-800/20">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="text-base leading-none">🔗</span>
+            <span class="text-xs font-medium text-slate-400">Import from Jira</span>
+            <span id="jira-badge" class="hidden text-xs font-medium text-emerald-400">● Connected</span>
+            <a href="/profile#jira" class="text-xs text-slate-600 hover:text-teal transition ml-auto">Setup →</a>
+          </div>
+          <div class="flex gap-2">
+            <input id="jira-issue-key" type="text" placeholder="Issue key — e.g. PROJ-123"
+              class="flex-1 bg-slate-900/60 border border-slate-600/40 rounded-lg px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-teal/40 uppercase"
+              oninput="this.value=this.value.toUpperCase()"/>
+            <button onclick="importFromJira()"
+              class="px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-xs text-teal font-semibold transition whitespace-nowrap">
+              Import ↓
+            </button>
+          </div>
+          <div id="jira-import-msg" class="hidden mt-1.5 text-xs"></div>
+        </div>
+
         <!-- Generate button -->
         <button
           id="generate-btn"
@@ -269,12 +289,41 @@ Acceptance Criteria:
           Review the draft above, edit anything that needs your expertise, and approve before use.
         </div>
 
-        <!-- Jira CTA -->
-        <div class="mt-4 bg-purple/10 border border-purple/30 rounded-lg p-4 text-center">
-          <p class="text-xs text-slate-400 mb-1">Want this inside Jira — draft, review, and push to Xray in one place?</p>
-          <a href="#" class="text-xs font-semibold text-teal hover:underline">
-            Verid-iq for Jira — coming to Atlassian Marketplace →
-          </a>
+        <!-- Xray Push Section -->
+        <div class="mt-4 border border-slate-700/40 rounded-lg p-4 bg-slate-900/30">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-base leading-none">🎯</span>
+            <span class="text-sm font-medium text-slate-300">Approve & Push to Xray</span>
+          </div>
+          <!-- No output yet -->
+          <div id="xray-no-output" class="text-xs text-slate-600 py-2 text-center">
+            Generate artifacts first, then approve and push to your Xray project.
+          </div>
+          <!-- Push form — shown after generation -->
+          <div id="xray-push-form" class="hidden space-y-2 mt-2">
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-xs text-slate-500 mb-1">Project key</label>
+                <input id="xray-project" type="text" placeholder="e.g. PROJ"
+                  class="w-full bg-slate-800/60 border border-slate-600/40 rounded-lg px-3 py-1.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-teal/40 uppercase"
+                  oninput="this.value=this.value.toUpperCase()"/>
+              </div>
+              <div>
+                <label class="block text-xs text-slate-500 mb-1">Test title</label>
+                <input id="xray-summary" type="text" placeholder="Summary for the Xray test"
+                  class="w-full bg-slate-800/60 border border-slate-600/40 rounded-lg px-3 py-1.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-teal/40"/>
+              </div>
+            </div>
+            <button onclick="approveAndPush()"
+              class="w-full py-2.5 bg-teal/15 hover:bg-teal/25 border border-teal/30 text-teal font-semibold rounded-lg text-sm transition">
+              ✓ Approve & Push to Xray
+            </button>
+            <div id="xray-push-msg" class="hidden text-xs text-center pt-1"></div>
+          </div>
+          <!-- No Jira connection -->
+          <div id="xray-no-jira" class="hidden text-xs text-center pt-2">
+            <a href="/profile#jira" class="text-teal hover:underline">Connect Jira in your Profile →</a>
+          </div>
         </div>
 
       </div>
@@ -302,6 +351,8 @@ Acceptance Criteria:
     let isGenerating = false;
     let creditBalance = 50;
     let creditMax = 50;
+    let jiraIssueKey = null;
+    let jiraConnected = false;
 
     function updateCreditWidget(balance, used_today = 0, tier = 'Free', max = 50) {
       creditBalance = balance;
@@ -327,7 +378,103 @@ Acceptance Criteria:
         document.getElementById('char-count').textContent =
           `${textarea.value.length} / 5000 characters`;
       });
+
+      checkJiraConnection();
     });
+
+    async function checkJiraConnection() {
+      try {
+        const r = await fetch('/api/jira/status');
+        if (!r.ok) return;
+        const data = await r.json();
+        jiraConnected = data.connected;
+        if (data.connected) {
+          const badge = document.getElementById('jira-badge');
+          badge.textContent = `● Connected${data.display_name ? ' · ' + data.display_name : ''}`;
+          badge.classList.remove('hidden');
+          document.querySelector('#jira-badge').nextElementSibling && null;
+        }
+      } catch(e) {}
+    }
+
+    async function importFromJira() {
+      const key = document.getElementById('jira-issue-key').value.trim().toUpperCase();
+      if (!key) { return; }
+      const msgEl = document.getElementById('jira-import-msg');
+      msgEl.textContent = 'Fetching from Jira...';
+      msgEl.className = 'text-xs text-slate-400';
+      msgEl.classList.remove('hidden');
+
+      try {
+        const r = await fetch(`/api/jira/issue/${key}`);
+        const data = await r.json();
+        if (!r.ok) {
+          msgEl.textContent = `✗ ${data.detail || 'Failed to fetch issue'}`;
+          msgEl.className = 'text-xs text-red-400';
+          return;
+        }
+        jiraIssueKey = data.key;
+        // Populate textarea
+        let text = `Issue: ${data.key} — ${data.summary}`;
+        if (data.description && data.description.trim()) {
+          text += `\n\n${data.description.trim()}`;
+        }
+        const textarea = document.getElementById('input-text');
+        textarea.value = text.substring(0, 5000);
+        document.getElementById('char-count').textContent = `${textarea.value.length} / 5000 characters`;
+        // Pre-fill Xray fields
+        document.getElementById('xray-project').value = data.project_key || '';
+        document.getElementById('xray-summary').value =
+          (`${selectedType ? selectedType.replace(/_/g,' ') : 'Test'}: ${data.summary}`).substring(0, 120);
+        msgEl.textContent = `✓ Imported ${data.key} — ${data.issue_type} · ${data.status}`;
+        msgEl.className = 'text-xs text-emerald-400';
+      } catch(e) {
+        msgEl.textContent = '✗ Connection error — is Jira set up in your Profile?';
+        msgEl.className = 'text-xs text-red-400';
+      }
+    }
+
+    async function approveAndPush() {
+      const projectKey = document.getElementById('xray-project').value.trim().toUpperCase();
+      const summary = document.getElementById('xray-summary').value.trim();
+      if (!projectKey) { alert('Enter a project key (e.g. PROJ).'); return; }
+      if (!summary)    { alert('Enter a test title.'); return; }
+      if (!fullOutput) { alert('Generate something first.'); return; }
+
+      const msgEl = document.getElementById('xray-push-msg');
+      msgEl.textContent = 'Pushing to Xray...';
+      msgEl.className = 'text-xs text-center text-slate-400';
+      msgEl.classList.remove('hidden');
+
+      const btn = document.querySelector('#xray-push-form button');
+      btn.disabled = true;
+
+      try {
+        const r = await fetch('/api/jira/push-xray', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            project_key: projectKey,
+            summary: summary,
+            content: fullOutput,
+            linked_issue_key: jiraIssueKey || null,
+          })
+        });
+        const data = await r.json();
+        if (!r.ok) {
+          msgEl.textContent = `✗ ${data.detail || 'Push failed'}`;
+          msgEl.className = 'text-xs text-center text-red-400';
+        } else {
+          msgEl.innerHTML = `✓ Created <a href="${data.url}" target="_blank" class="text-teal underline font-semibold">${data.key}</a> in Xray (${data.issue_type})`;
+          msgEl.className = 'text-xs text-center text-emerald-400';
+        }
+      } catch(e) {
+        msgEl.textContent = '✗ Connection error';
+        msgEl.className = 'text-xs text-center text-red-400';
+      } finally {
+        btn.disabled = false;
+      }
+    }
 
     function selectType(btn) {
       document.querySelectorAll('.type-card').forEach(b => b.classList.remove('active'));
@@ -378,6 +525,25 @@ Acceptance Criteria:
       // Show action buttons
       const actions = document.getElementById('output-actions');
       actions.style.removeProperty('display');
+
+      // Reveal Xray push form
+      document.getElementById('xray-no-output').classList.add('hidden');
+      document.getElementById('xray-push-msg').classList.add('hidden');
+      if (jiraConnected) {
+        document.getElementById('xray-push-form').classList.remove('hidden');
+        document.getElementById('xray-no-jira').classList.add('hidden');
+        // Auto-fill summary if not already set
+        const summaryEl = document.getElementById('xray-summary');
+        if (!summaryEl.value) {
+          const typeEl = document.querySelector('.type-card.active .text-xs.font-medium');
+          const typeLabel = typeEl ? typeEl.textContent.trim() : (selectedType || 'Test');
+          const inputFirstLine = document.getElementById('input-text').value.split('\n')[0].substring(0, 80);
+          summaryEl.value = `${typeLabel}: ${inputFirstLine}`;
+        }
+      } else {
+        document.getElementById('xray-push-form').classList.add('hidden');
+        document.getElementById('xray-no-jira').classList.remove('hidden');
+      }
     }
 
     // Lightweight markdown renderer
