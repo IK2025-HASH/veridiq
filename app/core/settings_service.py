@@ -79,13 +79,13 @@ def _sync_set_many(data: dict) -> None:
                 ).fetchone()
                 if existing:
                     session.execute(
-                        text("UPDATE app_settings SET value = :v, updated_at = datetime('now') WHERE key = :k"),
+                        text("UPDATE app_settings SET value = :v, updated_at = CURRENT_TIMESTAMP WHERE key = :k"),
                         {"v": stored, "k": key}
                     )
                 else:
                     import uuid
                     session.execute(
-                        text("INSERT INTO app_settings (id, key, value, updated_at) VALUES (:id, :k, :v, datetime('now'))"),
+                        text("INSERT INTO app_settings (id, key, value, updated_at) VALUES (:id, :k, :v, CURRENT_TIMESTAMP)"),
                         {"id": str(uuid.uuid4()), "k": key, "v": stored}
                     )
             session.commit()

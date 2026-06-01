@@ -46,6 +46,43 @@ async def lifespan(app: FastAPI):
         logger.warning(f"Could not load settings from DB: {e}")
         app.state.setup_complete = False
 
+    # Restore admin user from DB so login works after restart
+    if app.state.setup_complete:
+        try:
+            admin_id = await settings_service.get("admin_id")
+            admin_email = await settings_service.get("admin_email")
+            admin_pw_hash = await settings_service.get("admin_password_hash")
+            if admin_id and admin_email and admin_pw_hash:
+                from app.api.users import USERS
+                import datetime as _dt
+                USERS.setdefault(admin_id, {
+                    "id": admin_id,
+                    "email": admin_email,
+                    "display_name": "Admin",
+                    "hashed_password": admin_pw_hash,
+                    "is_verified": True,
+                    "is_active": True,
+                    "is_admin": True,
+                    "tier": "enterprise",
+                    "credit_balance": 1000,
+                    "credits_used_month": 0,
+                    "credits_used_total": 0,
+                    "account_type": "individual",
+                    "team_id": None,
+                    "classified_mode": False,
+                    "billing_name": None,
+                    "billing_address": None,
+                    "billing_vat": None,
+                    "company_name": None,
+                    "phone": None,
+                    "avatar_url": None,
+                    "created_at": _dt.datetime.utcnow().isoformat(),
+                    "last_login": None,
+                })
+                logger.info(f"Admin user restored: {admin_email}")
+        except Exception as e:
+            logger.warning(f"Could not restore admin user: {e}")
+
     # Load knowledge volumes
     knowledge_dir = Path(__file__).parent.parent / "knowledge_volumes"
     knowledge_store.load(knowledge_dir)

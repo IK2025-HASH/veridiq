@@ -28,7 +28,7 @@ class PushXrayRequest(BaseModel):
 
 def _jira_error(exc: Exception) -> HTTPException:
     msg = str(exc)
-    if "401" in msg or "Unauthorized" in msg or "PermissionError" in msg.__class__.__name__:
+    if isinstance(exc, PermissionError) or "401" in msg or "Unauthorized" in msg:
         return HTTPException(401, "Invalid Jira credentials — check your email and API token")
     if any(x in msg for x in ("ConnectError", "ConnectTimeout", "getaddrinfo", "Name or service")):
         return HTTPException(400, "Cannot reach Jira — check the URL is correct")
