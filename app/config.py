@@ -4,6 +4,7 @@ from pydantic_settings import BaseSettings
 from functools import lru_cache
 from pathlib import Path
 
+
 class Settings(BaseSettings):
     APP_NAME: str = "Verid-iq"
     APP_TAGLINE: str = "AI-Powered Test Intelligence for Jira"
@@ -15,7 +16,8 @@ class Settings(BaseSettings):
     ANTHROPIC_MODEL: str = "claude-sonnet-4-20250514"
     MAX_TOKENS: int = 4096
 
-    DATABASE_URL: str = "postgresql+asyncpg://user:pass@localhost/veridiq"
+    # SQLite by default (local) — Railway injects a real PostgreSQL URL automatically
+    DATABASE_URL: str = "sqlite+aiosqlite:///./veridiq.db"
 
     RATE_LIMIT_PER_DAY: int = 5
 
@@ -26,7 +28,6 @@ class Settings(BaseSettings):
     LINKEDIN_CLIENT_SECRET: str = ""
     LINKEDIN_REDIRECT_URI: str = "https://veridiq.networklogic.uk/auth/linkedin/callback"
 
-    # App base URL
     BASE_URL: str = "https://veridiq.networklogic.uk"
 
     # Email (SMTP)
@@ -42,5 +43,6 @@ class Settings(BaseSettings):
 @lru_cache()
 def get_settings() -> Settings:
     return Settings()
+
 
 settings = get_settings()
