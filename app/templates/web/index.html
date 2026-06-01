@@ -76,12 +76,23 @@
   <header class="border-b border-slate-700/50 bg-navy/95 backdrop-blur sticky top-0 z-50">
     <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <span class="text-2xl font-bold tracking-tight">
+        <a href="{% if user %}/dashboard{% else %}/{% endif %}" class="text-2xl font-bold tracking-tight">
           <span class="text-white">Verid</span><span class="text-teal">-iq</span>
-        </span>
+        </a>
         <span class="text-slate-500 text-sm hidden sm:block">AI Test Intelligence</span>
       </div>
       <div class="flex items-center gap-4">
+        {% if user %}
+        <!-- Primary navigation (matches the rest of the app) -->
+        <nav class="hidden md:flex items-center gap-1 text-xs">
+          <a href="/dashboard" class="px-3 py-1.5 rounded hover:bg-slate-700/50 text-slate-300 hover:text-white transition">Dashboard</a>
+          <a href="/" class="px-3 py-1.5 rounded bg-teal/15 text-teal hover:bg-teal/25 transition">Generate</a>
+          <a href="/credits" class="px-3 py-1.5 rounded hover:bg-slate-700/50 text-slate-300 hover:text-white transition">Credits</a>
+          <a href="/team" class="px-3 py-1.5 rounded hover:bg-slate-700/50 text-slate-300 hover:text-white transition">Team</a>
+          <a href="/invoices" class="px-3 py-1.5 rounded hover:bg-slate-700/50 text-slate-300 hover:text-white transition">Invoices</a>
+          {% if user.is_admin %}<a href="/admin" class="px-3 py-1.5 rounded bg-purple/20 text-purple-300 hover:bg-purple/30 transition">Admin</a>{% endif %}
+        </nav>
+        {% endif %}
         <!-- Floating credit dashboard -->
         <div id="credit-widget" class="relative group cursor-pointer">
           <div class="flex items-center gap-2 bg-slate-800/80 border border-slate-600/50 hover:border-teal/40 rounded-lg px-3 py-2 transition-all">
@@ -116,8 +127,19 @@
             <a href="#" class="block mt-2 text-center text-xs font-semibold text-teal hover:underline">Top up credits →</a>
           </div>
         </div>
+        {% if user %}
+        <div class="flex items-center gap-2 border-l border-slate-700 pl-3">
+          <a href="/profile" title="Profile &amp; Jira setup"
+             class="w-8 h-8 rounded-full bg-teal/20 border border-teal/40 flex items-center justify-center text-xs font-bold text-teal hover:bg-teal/30 transition">
+            {{ user.display_name[0].upper() }}
+          </a>
+          <button onclick="fetch('/api/auth/logout',{method:'POST'}).then(()=>location.href='/login')"
+                  class="text-slate-500 hover:text-slate-300 text-xs transition">Sign out</button>
+        </div>
+        {% else %}
         <span class="text-xs text-slate-500">by</span>
         <span class="text-sm font-semibold text-teal tracking-wide">Network Logic</span>
+        {% endif %}
       </div>
     </div>
   </header>

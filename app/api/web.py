@@ -6,6 +6,7 @@ from fastapi.templating import Jinja2Templates
 from pathlib import Path
 
 from app.core.ai_engine import GENERATION_LABELS, GENERATION_ICONS, BATCH_TYPES
+from app.api.users import get_current_user
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
@@ -37,5 +38,5 @@ async def index(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="web/index.html",
-        context={"generation_types": generation_types},
+        context={"generation_types": generation_types, "user": get_current_user(request)},
     )
