@@ -100,7 +100,8 @@ async def setup_submit(
     # Log the admin in
     token = create_access_token(admin_id, admin_email)
     ip = str(request.client.host) if request.client else "127.0.0.1"
-    session_id = create_session(admin_id, ip)
+    user_agent = request.headers.get("user-agent", "")
+    session_id = create_session(admin_id, ip, user_agent)
 
     response = RedirectResponse("/admin", status_code=302)
     response.set_cookie("access_token", token, httponly=True, samesite="lax")

@@ -2,20 +2,29 @@
 
 from datetime import datetime, timedelta
 from typing import Optional
+import bcrypt
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from app.config import settings
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# We use the bcrypt library directly rather than passlib — passlib 1.7.4 is
+# unmaintained and crashes on bcrypt >= 4.1 (its internal self-test raises
+# "password cannot be longer than 72 bytes"). bcrypt itself is stable.
 
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24        # 24 hours
 REFRESH_TOKEN_EXPIRE_DAYS   = 30
 
+
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    # bcrypt only uses the first 72 bytes; truncate to stay within the limit.
+    pw = password.encode("utf-8")[:72]
+    return bcrypt.hashpw(pw, bcrypt.gensalt()).decode("utf-8")
+
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_context.verify(plain, hashed)
+    try:
+        return bcrypt.checkpw(plain.encode("utf-8")[:72], hashed.encode("utf-8"))
+    except (ValueError, TypeError):
+        return False
 
 def create_access_token(user_id: str, email: str) -> str:
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
