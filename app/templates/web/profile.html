@@ -46,6 +46,54 @@
     </label>
   </div>
 
+  <!-- Jira Connection -->
+  <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-6 space-y-4" id="jira">
+    <div class="flex items-center justify-between">
+      <h2 class="text-sm font-semibold text-[#00B5AD]">Jira Connection</h2>
+      <div class="flex items-center gap-2">
+        <span id="jira-connected-badge" class="{% if not user.jira_url %}hidden {% endif %}text-xs px-2 py-1 rounded-full bg-emerald-900/30 border border-emerald-500/30 text-emerald-400">
+          ✓ Connected{% if user.jira_display_name %} as {{ user.jira_display_name }}{% endif %}
+        </span>
+        <button id="jira-disconnect-btn" onclick="disconnectJira()"
+          class="{% if not user.jira_url %}hidden {% endif %}text-xs text-slate-500 hover:text-red-400 transition">
+          Disconnect
+        </button>
+      </div>
+    </div>
+    <p class="text-xs text-slate-500">Connect your Jira account to import issues directly into the generator and push approved test cases to Xray.
+      <a href="https://id.atlassian.com/manage-profile/security/api-tokens" target="_blank" class="text-[#00B5AD] hover:underline">Get API token →</a>
+    </p>
+    <div class="space-y-3">
+      <div>
+        <label class="block text-xs text-slate-500 mb-1">Jira URL</label>
+        <input id="jira_url" type="text" value="{{ user.jira_url or '' }}"
+          placeholder="https://yourcompany.atlassian.net"
+          class="w-full bg-slate-900/60 border border-slate-600/50 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-[#00B5AD]/50"/>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">Jira Email</label>
+          <input id="jira_email" type="email" value="{{ user.jira_email or '' }}"
+            placeholder="you@company.com"
+            class="w-full bg-slate-900/60 border border-slate-600/50 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-[#00B5AD]/50"/>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-500 mb-1">API Token</label>
+          <input id="jira_api_token" type="password" value="{{ user.jira_api_token or '' }}"
+            placeholder="ATATT3xFfGF0..."
+            class="w-full bg-slate-900/60 border border-slate-600/50 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-[#00B5AD]/50"/>
+        </div>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <button onclick="connectJira()"
+        class="px-5 py-2 bg-[#00B5AD] hover:bg-[#00B5AD]/80 text-[#0D1B3E] font-bold rounded-lg text-sm transition">
+        Connect & Save
+      </button>
+      <span id="jira-status-msg" class="text-xs text-slate-500"></span>
+    </div>
+  </div>
+
   <!-- Change password -->
   <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-6 space-y-4">
     <h2 class="text-sm font-semibold text-[#00B5AD]">Change Password</h2>
@@ -72,6 +120,43 @@ async function saveProfile() {
 async function changePw() {
   const r = await fetch('/api/auth/change-password', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ current_password: document.getElementById('cur_pw').value, new_password: document.getElementById('new_pw').value }) });
   alert(r.ok ? 'Password updated.' : 'Incorrect current password.');
+}
+async function connectJira() {
+  const statusEl = document.getElementById('jira-status-msg');
+  statusEl.textContent = 'Connecting...';
+  statusEl.className = 'text-xs text-slate-400';
+  const r = await fetch('/api/jira/connect', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      jira_url: document.getElementById('jira_url').value.trim(),
+      jira_email: document.getElementById('jira_email').value.trim(),
+      api_token: document.getElementById('jira_api_token').value.trim(),
+    })
+  });
+  const data = await r.json();
+  if (r.ok && data.ok) {
+    statusEl.textContent = `✓ Connected as ${data.display_name}`;
+    statusEl.className = 'text-xs text-emerald-400';
+    const badge = document.getElementById('jira-connected-badge');
+    badge.textContent = `✓ Connected as ${data.display_name}`;
+    badge.classList.remove('hidden');
+    document.getElementById('jira-disconnect-btn').classList.remove('hidden');
+  } else {
+    statusEl.textContent = `✗ ${data.detail || 'Connection failed'}`;
+    statusEl.className = 'text-xs text-red-400';
+  }
+}
+async function disconnectJira() {
+  if (!confirm('Disconnect Jira? You can reconnect any time.')) return;
+  await fetch('/api/jira/disconnect', { method: 'POST' });
+  document.getElementById('jira_url').value = '';
+  document.getElementById('jira_email').value = '';
+  document.getElementById('jira_api_token').value = '';
+  document.getElementById('jira-connected-badge').classList.add('hidden');
+  document.getElementById('jira-disconnect-btn').classList.add('hidden');
+  document.getElementById('jira-status-msg').textContent = 'Disconnected.';
+  document.getElementById('jira-status-msg').className = 'text-xs text-slate-500';
 }
 </script>
 {% endblock %}
