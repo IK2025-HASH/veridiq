@@ -35,7 +35,10 @@ async def lifespan(app: FastAPI):
 
     # Create DB tables (including app_settings)
     from app.database import create_tables
-    await create_tables()
+    try:
+        await create_tables()
+    except Exception as e:
+        logger.error(f"create_tables failed (continuing anyway): {e}")
 
     # Load settings from DB and check setup state
     try:

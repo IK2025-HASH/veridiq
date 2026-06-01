@@ -23,6 +23,7 @@ from app.core.security import (
     setup_totp, verify_totp, get_totp_enabled, disable_totp,
     create_2fa_pending_token, consume_2fa_pending_token,
 )
+from app.config import settings
 from app.core.linkedin_oauth import (
     get_linkedin_auth_url, validate_state,
     exchange_code_for_token, get_linkedin_profile,
@@ -207,9 +208,7 @@ async def logout(request: Request, response: Response):
     if token:
         payload = decode_token(token)
         if payload:
-            # Revoke session
-            for sid, s in list(get_user_sessions(payload.get("sub", "")).__class__.__mro__):
-                pass  # sessions handled by security module
+            revoke_all_sessions(payload.get("sub", ""))
     response.delete_cookie("access_token")
     return {"ok": True}
 

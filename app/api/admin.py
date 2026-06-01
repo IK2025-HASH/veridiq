@@ -41,8 +41,7 @@ async def admin_dashboard(request: Request):
         "smtp_set": bool(await settings_service.get("smtp_host")),
         "admin_email": await settings_service.get("admin_email"),
     }
-    return templates.TemplateResponse("web/admin_dashboard.html", {
-        "request": request,
+    return templates.TemplateResponse(request=request, name="web/admin_dashboard.html", context={
         "user": user,
         "stats": stats,
     })
@@ -64,8 +63,7 @@ async def settings_page(request: Request):
         "linkedin_client_id": await settings_service.get("linkedin_client_id") or "",
         "rate_limit_per_day": await settings_service.get("rate_limit_per_day") or "5",
     }
-    return templates.TemplateResponse("web/admin_settings.html", {
-        "request": request,
+    return templates.TemplateResponse(request=request, name="web/admin_settings.html", context={
         "user": user,
         "current": current,
         "saved": request.query_params.get("saved"),
@@ -115,8 +113,7 @@ async def admin_users(request: Request):
         return RedirectResponse("/login", status_code=302)
 
     from app.api.users import USERS
-    return templates.TemplateResponse("web/admin_users.html", {
-        "request": request,
+    return templates.TemplateResponse(request=request, name="web/admin_users.html", context={
         "user": user,
         "users": list(USERS.values()),
     })

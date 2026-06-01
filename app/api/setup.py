@@ -17,9 +17,12 @@ templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templa
 
 @router.get("/setup", response_class=HTMLResponse)
 async def setup_page(request: Request):
-    if await settings_service.is_setup_complete():
-        return RedirectResponse("/", status_code=302)
-    return templates.TemplateResponse("web/setup.html", {"request": request, "error": None})
+    try:
+        if await settings_service.is_setup_complete():
+            return RedirectResponse("/", status_code=302)
+    except Exception:
+        pass
+    return templates.TemplateResponse(request=request, name="web/setup.html", context={"error": None})
 
 
 @router.post("/setup")
@@ -42,10 +45,10 @@ async def setup_submit(
         errors.append("Invalid Anthropic API key — must start with sk-ant-")
 
     if errors:
-        return templates.TemplateResponse("web/setup.html", {
-            "request": request,
-            "error": " · ".join(errors),
-        }, status_code=400)
+        return templates.TemplateResponse(
+            request=request, name="web/setup.html",
+            context={"error": " · ".join(errors)}, status_code=400,
+        )
 
     # Create admin user in the in-memory store
     from app.api.users import USERS
