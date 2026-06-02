@@ -40,3 +40,53 @@ async def index(request: Request):
         name="web/index.html",
         context={"generation_types": generation_types, "user": get_current_user(request)},
     )
+
+
+@router.get("/projects", response_class=HTMLResponse)
+async def projects_page(request: Request):
+    from fastapi.responses import RedirectResponse
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    return templates.TemplateResponse(
+        request=request, name="web/projects.html", context={"user": user}
+    )
+
+
+@router.get("/projects/{project_key}/stories", response_class=HTMLResponse)
+async def stories_page(request: Request, project_key: str):
+    from fastapi.responses import RedirectResponse
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    return templates.TemplateResponse(
+        request=request,
+        name="web/stories.html",
+        context={"user": user, "project_key": project_key.upper()},
+    )
+
+
+@router.get("/generate/{issue_key}", response_class=HTMLResponse)
+async def generate_issue_page(request: Request, issue_key: str):
+    from fastapi.responses import RedirectResponse
+    user = get_current_user(request)
+    if not user:
+        return RedirectResponse("/login", status_code=302)
+    generation_types = [
+        {
+            "key": key,
+            "label": label,
+            "icon": GENERATION_ICONS.get(key, "🔧"),
+            "supports_quantity": key in BATCH_TYPES,
+        }
+        for key, label in GENERATION_LABELS.items()
+    ]
+    return templates.TemplateResponse(
+        request=request,
+        name="web/generate_issue.html",
+        context={
+            "user": user,
+            "issue_key": issue_key.upper(),
+            "generation_types": generation_types,
+        },
+    )

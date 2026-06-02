@@ -1,0 +1,93 @@
+{% extends "web/_base.html" %}
+{% block title %}Projects{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+
+  <!-- Header -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-white">Projects</h1>
+      <p class="text-slate-400 text-sm mt-1">Select a project to browse its backlog.</p>
+    </div>
+    <a href="/profile#jira" class="text-xs text-slate-500 hover:text-teal transition flex items-center gap-1">
+      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      Jira settings
+    </a>
+  </div>
+
+  <!-- Loading state -->
+  <div id="loading" class="flex items-center gap-3 text-slate-500 text-sm py-12 justify-center">
+    <svg class="animate-spin w-5 h-5 text-teal" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+    </svg>
+    Loading projects…
+  </div>
+
+  <!-- Not connected -->
+  <div id="not-connected" class="hidden text-center py-16">
+    <div class="text-4xl mb-4">🔗</div>
+    <h2 class="text-lg font-semibold text-white mb-2">Jira not connected</h2>
+    <p class="text-slate-400 text-sm mb-6">Connect your Jira account to browse projects and generate test artifacts.</p>
+    <a href="/profile#jira" class="inline-flex items-center gap-2 px-5 py-2.5 bg-teal hover:bg-teal/80 text-navy font-bold rounded-lg text-sm transition">
+      Connect Jira →
+    </a>
+  </div>
+
+  <!-- Error state -->
+  <div id="error-state" class="hidden text-center py-12 text-red-400 text-sm"></div>
+
+  <!-- Project grid -->
+  <div id="project-grid" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+
+</div>
+
+<script>
+(async function loadProjects() {
+  const grid   = document.getElementById('project-grid');
+  const loader = document.getElementById('loading');
+  const noConn = document.getElementById('not-connected');
+  const errEl  = document.getElementById('error-state');
+
+  try {
+    const r = await fetch('/api/jira/projects');
+    if (r.status === 400) { loader.classList.add('hidden'); noConn.classList.remove('hidden'); return; }
+    if (r.status === 401) { loader.classList.add('hidden'); noConn.classList.remove('hidden'); return; }
+    if (!r.ok) throw new Error((await r.json()).detail || 'Failed to load projects');
+
+    const { projects } = await r.json();
+    loader.classList.add('hidden');
+
+    if (!projects.length) {
+      errEl.textContent = 'No projects found in your Jira account.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+
+    grid.innerHTML = projects.map(p => `
+      <a href="/projects/${p.key}/stories"
+         class="group bg-slate-800/60 border border-slate-700/50 hover:border-teal/40 rounded-xl p-6 flex flex-col gap-3 transition cursor-pointer">
+        <div class="flex items-start justify-between">
+          <span class="inline-block bg-teal/15 text-teal text-xs font-bold px-2.5 py-1 rounded">${p.key}</span>
+          <svg class="w-4 h-4 text-slate-600 group-hover:text-teal transition" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+          </svg>
+        </div>
+        <div>
+          <div class="font-semibold text-white text-sm group-hover:text-teal transition">${p.name}</div>
+          <div class="text-xs text-slate-500 mt-0.5 capitalize">${p.type || 'project'}</div>
+        </div>
+        <div class="text-xs text-teal/70 group-hover:text-teal transition mt-auto">View stories →</div>
+      </a>
+    `).join('');
+    grid.classList.remove('hidden');
+
+  } catch(e) {
+    loader.classList.add('hidden');
+    errEl.textContent = '⚠ ' + e.message;
+    errEl.classList.remove('hidden');
+  }
+})();
+</script>
+{% endblock %}

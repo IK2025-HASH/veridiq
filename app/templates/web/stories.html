@@ -1,0 +1,116 @@
+{% extends "web/_base.html" %}
+{% block title %}{{ project_key }} — Backlog{% endblock %}
+{% block main_class %}max-w-6xl{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+
+  <!-- Breadcrumb -->
+  <nav class="flex items-center gap-2 text-sm text-slate-500">
+    <a href="/projects" class="hover:text-teal transition">Projects</a>
+    <span class="text-slate-700">›</span>
+    <span class="text-slate-300 font-medium">{{ project_key }}</span>
+  </nav>
+
+  <!-- Header -->
+  <div>
+    <h1 class="text-2xl font-bold text-white">{{ project_key }} — Backlog</h1>
+    <p id="subtitle" class="text-slate-400 text-sm mt-1">Loading stories…</p>
+  </div>
+
+  <!-- Loading -->
+  <div id="loading" class="flex items-center gap-3 text-slate-500 text-sm py-12 justify-center">
+    <svg class="animate-spin w-5 h-5 text-teal" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+    </svg>
+    Fetching backlog…
+  </div>
+
+  <!-- Error -->
+  <div id="error-state" class="hidden text-center py-12 text-red-400 text-sm"></div>
+
+  <!-- Table -->
+  <div id="table-wrap" class="hidden bg-slate-800/60 border border-slate-700/50 rounded-xl overflow-hidden">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-slate-700/50 text-xs text-slate-500 uppercase tracking-wide">
+          <th class="text-left px-5 py-3 font-medium w-28">Key</th>
+          <th class="text-left px-5 py-3 font-medium">Summary</th>
+          <th class="text-left px-5 py-3 font-medium w-28 hidden md:table-cell">Type</th>
+          <th class="text-left px-5 py-3 font-medium w-28 hidden md:table-cell">Status</th>
+          <th class="px-5 py-3 w-36"></th>
+        </tr>
+      </thead>
+      <tbody id="story-rows"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+const PROJECT_KEY = "{{ project_key }}";
+
+(async function loadStories() {
+  const loader   = document.getElementById('loading');
+  const errEl    = document.getElementById('error-state');
+  const wrap     = document.getElementById('table-wrap');
+  const subtitle = document.getElementById('subtitle');
+  const tbody    = document.getElementById('story-rows');
+
+  try {
+    const r = await fetch(`/api/jira/projects/${PROJECT_KEY}/issues`);
+    if (!r.ok) {
+      const d = await r.json();
+      throw new Error(d.detail || 'Failed to load stories');
+    }
+    const { issues } = await r.json();
+    loader.classList.add('hidden');
+
+    subtitle.textContent = `${issues.length} issue${issues.length !== 1 ? 's' : ''} found. Click Generate to create test artifacts.`;
+
+    if (!issues.length) {
+      errEl.textContent = 'No issues found in this project.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+
+    const statusColour = s => {
+      const m = { 'To Do': 'text-slate-400 bg-slate-700/50', 'In Progress': 'text-blue-300 bg-blue-900/30', 'Done': 'text-emerald-400 bg-emerald-900/30' };
+      return m[s] || 'text-slate-400 bg-slate-700/50';
+    };
+
+    tbody.innerHTML = issues.map(i => `
+      <tr class="border-b border-slate-700/30 last:border-0 hover:bg-slate-700/20 transition">
+        <td class="px-5 py-3.5">
+          <a href="/generate/${i.key}" class="text-teal font-mono text-xs font-semibold hover:underline">${i.key}</a>
+        </td>
+        <td class="px-5 py-3.5 text-slate-200 text-sm">${escHtml(i.summary)}</td>
+        <td class="px-5 py-3.5 hidden md:table-cell">
+          <span class="text-xs text-slate-400">${escHtml(i.issue_type)}</span>
+        </td>
+        <td class="px-5 py-3.5 hidden md:table-cell">
+          <span class="text-xs px-2 py-0.5 rounded-full font-medium ${statusColour(i.status)}">${escHtml(i.status)}</span>
+        </td>
+        <td class="px-5 py-3.5 text-right">
+          <a href="/generate/${i.key}"
+             class="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-teal/15 hover:bg-teal/25 text-teal text-xs font-semibold rounded-lg transition">
+            Generate ✦
+          </a>
+        </td>
+      </tr>
+    `).join('');
+    wrap.classList.remove('hidden');
+
+  } catch(e) {
+    loader.classList.add('hidden');
+    errEl.textContent = '⚠ ' + e.message;
+    errEl.classList.remove('hidden');
+  }
+})();
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+{% endblock %}

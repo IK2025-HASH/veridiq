@@ -160,6 +160,18 @@
       or defect reports in seconds. You review, refine, and approve. Always.
     </p>
 
+    <!-- CTAs -->
+    {% if user %}
+    <div class="flex flex-wrap justify-center gap-3 mt-8">
+      <a href="/projects" class="inline-flex items-center gap-2 px-6 py-2.5 bg-teal hover:bg-teal/80 text-navy font-bold rounded-xl text-sm transition">
+        Browse Projects →
+      </a>
+      <a href="#generator" class="inline-flex items-center gap-2 px-6 py-2.5 border border-slate-600 hover:border-teal/50 text-slate-300 hover:text-white rounded-xl text-sm transition">
+        Quick Generate
+      </a>
+    </div>
+    {% endif %}
+
     <!-- Human in the loop trust strip -->
     <div class="flex flex-wrap justify-center gap-6 mt-8 text-xs text-slate-500">
       <span class="flex items-center gap-1.5"><span class="text-teal">✓</span> AI drafts the artifact</span>
@@ -170,7 +182,7 @@
   </section>
 
   <!-- ── MAIN APP ──────────────────────────────────────────────────────────── -->
-  <main class="max-w-7xl mx-auto px-6 pb-20">
+  <main id="generator" class="max-w-7xl mx-auto px-6 pb-20">
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
       <!-- LEFT: INPUT PANEL -->
