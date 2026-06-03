@@ -147,6 +147,13 @@ app/
 ---
 
 ## 4. Migration plan (incremental, safe — NOT yet started)
+
+> **Owner directive (rock-carved, 2026-06-03): EVOLVE, NEVER BREAK.** Pursue this
+> target ONLY via small, behaviour-preserving steps, each behind its own freeze and
+> a green smoke test. **No big-bang reorganization.** The repo must never be left
+> broken — on GitHub, the laptop, or any host. If a step can't be done safely, stop
+> and ask. See `HANDOFF.md` §10.
+
 Refactor only with a green safety net and a freeze per step.
 
 0. **Prereq:** add a **smoke test** (`tests/`) that boots the app and asserts every

@@ -250,3 +250,9 @@ asking the owner anything:
 - Never commit secrets (Anthropic key, Jira tokens) to the repo or commit messages.
 - Additive changes preferred; freeze before risky work so we can always roll back.
 - Run/test code before claiming it works.
+- **EVOLVE, NEVER BREAK (rock-carved, owner directive 2026-06-03):** the codebase
+  may move toward the modular target (`ARCHITECTURE.md` §3), but ONLY through small,
+  incremental, behaviour-preserving steps, each behind its own freeze branch with
+  the smoke test green. **No big-bang reorganization. Never leave the repo in a
+  broken state** — on GitHub, on the laptop, or on any host. If a step can't be
+  done without risking a working state, stop and check with the owner first.
