@@ -14,6 +14,7 @@ from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel, EmailStr, Field
 
 from app.config import settings
+from app.core import user_repository
 from app.core.auth import (
     create_access_token,
     decode_token,
@@ -177,6 +178,8 @@ async def register(body: RegisterRequest, request: Request, response: Response):
         user_id, body.email, body.display_name,
         hash_password(body.password), None, body.account_type
     )
+    # Persist to DB so the user survives a restart
+    await user_repository.save(USERS[user_id])
 
     # Send verification email (non-blocking)
     send_verification_email(user_id, body.email, body.display_name)
@@ -213,6 +216,7 @@ async def login(body: LoginRequest, request: Request, response: Response):
 
     user["last_login"] = datetime.utcnow().isoformat()
     _set_auth_cookie(response, user["id"], user["email"], request)
+    await user_repository.update_last_login(user["id"])
     return {"ok": True, "redirect": "/dashboard"}
 
 

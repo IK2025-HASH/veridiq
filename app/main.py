@@ -18,7 +18,7 @@ from app.api.admin import router as admin_router
 from app.api.jira import router as jira_router
 from app.api.setup import router as setup_router
 from app.config import settings
-from app.core import settings_service
+from app.core import settings_service, user_repository
 from app.core.knowledge import knowledge_store
 
 logging.basicConfig(
@@ -50,55 +50,58 @@ async def lifespan(app: FastAPI):
         logger.warning(f"Could not load settings from DB: {e}")
         app.state.setup_complete = False
 
-    # Restore admin user from DB so login works after restart
+    # Restore ALL users from user_accounts table into the USERS dict.
+    # Falls back to the settings-table path for the admin if the table
+    # is empty (e.g. existing install that predates Sprint 3).
     if app.state.setup_complete:
+        from app.api.users import USERS
+        try:
+            db_users = await user_repository.load_all()
+            for u in db_users:
+                USERS.setdefault(u["id"], u)
+            if db_users:
+                logger.info(f"Restored {len(db_users)} user(s) from DB")
+        except Exception as e:
+            logger.warning(f"Could not load users from DB: {e}")
+
+        # Legacy fallback: restore admin from settings table if not yet in user_accounts
         try:
             admin_id = await settings_service.get("admin_id")
-            admin_email = await settings_service.get("admin_email")
-            admin_pw_hash = await settings_service.get("admin_password_hash")
-            if admin_id and admin_email and admin_pw_hash:
+            if admin_id and admin_id not in USERS:
                 import datetime as _dt
-
-                from app.api.users import USERS
-                USERS.setdefault(admin_id, {
-                    "id": admin_id,
-                    "email": admin_email,
-                    "display_name": "Admin",
-                    "hashed_password": admin_pw_hash,
-                    "is_verified": True,
-                    "is_active": True,
-                    "is_admin": True,
-                    "tier": "enterprise",
-                    "credit_balance": 1000,
-                    "credits_used_month": 0,
-                    "credits_used_total": 0,
-                    "account_type": "individual",
-                    "team_id": None,
-                    "classified_mode": False,
-                    "billing_name": None,
-                    "billing_address": None,
-                    "billing_vat": None,
-                    "company_name": None,
-                    "phone": None,
-                    "avatar_url": None,
-                    "created_at": _dt.datetime.utcnow().isoformat(),
-                    "last_login": None,
-                })
-                logger.info(f"Admin user restored: {admin_email}")
-
-                # Restore Jira credentials for admin
-                jira_url = await settings_service.get(f"jira_url__{admin_id}")
-                jira_email = await settings_service.get(f"jira_email__{admin_id}")
-                jira_token = await settings_service.get(f"jira_api_token__{admin_id}")
-                jira_name = await settings_service.get(f"jira_display_name__{admin_id}")
-                if jira_url and jira_token:
-                    USERS[admin_id]["jira_url"] = jira_url
-                    USERS[admin_id]["jira_email"] = jira_email or ""
-                    USERS[admin_id]["jira_api_token"] = jira_token
-                    USERS[admin_id]["jira_display_name"] = jira_name or ""
-                    logger.info(f"Jira credentials restored for admin ({jira_url})")
+                admin_email = await settings_service.get("admin_email") or ""
+                admin_pw_hash = await settings_service.get("admin_password_hash") or ""
+                USERS[admin_id] = {
+                    "id": admin_id, "email": admin_email, "display_name": "Admin",
+                    "hashed_password": admin_pw_hash, "email_verified": True,
+                    "is_active": True, "is_admin": True, "tier": "enterprise",
+                    "credit_balance": 1000, "credits_used_month": 0,
+                    "credits_used_total": 0, "account_type": "individual",
+                    "team_id": None, "team_role": None, "classified_mode": False,
+                    "billing_name": None, "billing_address": None,
+                    "billing_vat": None, "company_name": None,
+                    "phone": None, "avatar_url": None, "two_fa_enabled": False,
+                    "created_at": _dt.datetime.utcnow().isoformat(), "last_login": None,
+                }
+                logger.info(f"Admin restored from settings fallback: {admin_email}")
+                # Migrate to user_accounts for future restarts
+                await user_repository.save(USERS[admin_id])
         except Exception as e:
-            logger.warning(f"Could not restore admin user: {e}")
+            logger.warning(f"Could not restore admin via fallback: {e}")
+
+        # Restore Jira credentials for all users who have them
+        try:
+            for uid, user in list(USERS.items()):
+                jira_url = await settings_service.get(f"jira_url__{uid}")
+                jira_token = await settings_service.get(f"jira_api_token__{uid}")
+                if jira_url and jira_token:
+                    user["jira_url"] = jira_url
+                    user["jira_email"] = await settings_service.get(f"jira_email__{uid}") or ""
+                    user["jira_api_token"] = jira_token
+                    user["jira_display_name"] = await settings_service.get(f"jira_display_name__{uid}") or ""
+                    logger.info(f"Jira credentials restored for user {uid}")
+        except Exception as e:
+            logger.warning(f"Could not restore Jira credentials: {e}")
 
     # Load knowledge volumes
     knowledge_dir = Path(__file__).parent.parent / "knowledge_volumes"

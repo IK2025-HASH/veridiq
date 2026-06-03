@@ -8,7 +8,7 @@ from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 
-from app.core import settings_service
+from app.core import settings_service, user_repository
 from app.core.auth import create_access_token, hash_password
 from app.core.security import create_session
 
@@ -97,6 +97,10 @@ async def setup_submit(
 
     await settings_service.set_many(data)
     request.app.state.setup_complete = True
+
+    # Persist admin to user_accounts so they survive a restart without
+    # needing the settings-table fallback path
+    await user_repository.save(USERS[admin_id])
 
     # Log the admin in
     token = create_access_token(admin_id, admin_email)
