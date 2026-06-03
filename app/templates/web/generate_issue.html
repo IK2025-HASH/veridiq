@@ -187,6 +187,7 @@ let quantity      = 3;
 let fullOutput    = '';
 let issueData     = null;
 let parsedItems   = [];
+let jiraBaseUrl   = '';   // captured from the first created issue's URL
 
 // Regex patterns to split batch output into individual items
 const ITEM_PATTERNS = {
@@ -223,6 +224,13 @@ async function readError(resp) {
   }
   if (d && typeof d === 'object') return JSON.stringify(d);
   return `HTTP ${resp.status}`;
+}
+
+// Build a link to the project's issue board, filtered to show newest first.
+// Base URL is captured from a created issue's URL (e.g. https://x.atlassian.net/browse/APR-41).
+function boardLink(projectKey) {
+  if (!jiraBaseUrl || !projectKey) return '';
+  return `${jiraBaseUrl}/issues/?jql=${encodeURIComponent(`project = ${projectKey} ORDER BY created DESC`)}`;
 }
 
 function escHtml(str) {
@@ -507,6 +515,7 @@ async function pushCard(idx, projectKeyOverride) {
     } else {
       const data = await r.json();
       item.pushed = true;
+      if (data.url && data.url.includes('/browse/')) jiraBaseUrl = data.url.split('/browse/')[0];
       btn.textContent = '✓';
       btn.className   = btn.className.replace('bg-purple/60 hover:bg-purple/80', 'bg-emerald-700/40 cursor-default');
       btn.disabled    = true;
@@ -549,8 +558,11 @@ async function pushAllCards() {
   const failed = parsedItems.filter(item => !item.pushed).length;
   if (failed === 0) {
     btn.textContent = `✓ All ${parsedItems.length} pushed`;
-    msgEl.textContent = 'Done — check your Xray board.';
-    msgEl.className   = 'text-xs text-emerald-400';
+    const boardUrl = boardLink(projectKey);
+    msgEl.innerHTML = boardUrl
+      ? `Done — <a href="${boardUrl}" target="_blank" class="text-teal underline font-semibold">open your Xray board ↗</a>`
+      : 'Done — check your Xray board.';
+    msgEl.className  = 'text-xs text-emerald-400';
   } else {
     btn.textContent = `Push remaining (${failed} failed)`;
     btn.disabled    = false;
