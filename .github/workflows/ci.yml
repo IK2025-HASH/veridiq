@@ -27,6 +27,15 @@ jobs:
       - name: Lint (ruff)
         run: ruff check .
 
+      - name: Verify Alembic migrations are consistent
+        env:
+          DATABASE_URL: "sqlite+aiosqlite:///./test_migration.db"
+          SECRET_KEY: "ci-secret-key"
+          ANTHROPIC_API_KEY: "sk-ant-test-placeholder"
+        run: |
+          python -m alembic upgrade head
+          python -m alembic check
+
       - name: Run tests
         env:
           DATABASE_URL: "sqlite+aiosqlite:///./test_ci.db"
