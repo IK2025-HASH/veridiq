@@ -194,6 +194,20 @@ See `CHANGELOG.md` for what each release contains.
 
 ---
 
+## 6a. Tests / safety net
+- `tests/test_smoke.py` — **step-0 smoke test** (the EVOLVE-NEVER-BREAK net): boots
+  the app, runs first-boot setup, asserts the core journey + platform pages render
+  (no 5xx), validates input handling, and enforces structural invariants (expected
+  routes present; scaffold packages import; `platform/` never imports `product/` or
+  `delivery/`). Run green before AND after every refactor step.
+- `tests/conftest.py` — pins the suite to a throwaway **SQLite** DB + fake keys
+  (set before app import). No Postgres/network needed.
+- Run: `python -m uvicorn` not needed — just `pytest tests/ -q` (deps: pytest,
+  pytest-asyncio, httpx). 48 tests pass as of this freeze.
+- **Bugs the smoke test caught immediately:** `/team` and `/invoices` were linked in
+  the nav but their templates didn't exist → **500 in production**. Fixed by adding
+  `web/team.html` and `web/invoices.html`.
+
 ## 7. Known problems (open)
 1. **Xray push** — reported failing ("Xray does not connect"). The exact error
    text from the **Approve & Push to Xray** button has not yet been captured, so

@@ -1,0 +1,58 @@
+{% extends "web/_base.html" %}
+{% block title %}Team{% endblock %}
+{% block content %}
+<div class="space-y-8">
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-white">Team</h1>
+      <p class="text-slate-400 text-sm mt-1">Manage your team and shared credit pool.</p>
+    </div>
+  </div>
+
+  {% if team %}
+  <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-6 space-y-1">
+    <div class="text-xs text-slate-500">Team</div>
+    <div class="text-lg font-bold text-white">{{ team.name }}</div>
+    {% if team.description %}<div class="text-sm text-slate-400">{{ team.description }}</div>{% endif %}
+  </div>
+
+  <div>
+    <h2 class="text-sm font-semibold text-slate-400 mb-3">Members ({{ members|length }})</h2>
+    <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl overflow-hidden">
+      {% for m in members %}
+      <div class="flex items-center justify-between px-5 py-3 border-b border-slate-700/30 last:border-0">
+        <div>
+          <div class="text-sm text-slate-200">{{ m.display_name }}</div>
+          <div class="text-xs text-slate-600">{{ m.email }}</div>
+        </div>
+        {% if m.id == team.owner_id %}<span class="text-xs text-teal">Owner</span>{% endif %}
+      </div>
+      {% else %}
+      <div class="px-5 py-8 text-center text-slate-600 text-sm">No members yet</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  {% if invites %}
+  <div>
+    <h2 class="text-sm font-semibold text-slate-400 mb-3">Pending invites</h2>
+    <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl overflow-hidden">
+      {% for inv in invites %}
+      <div class="flex items-center justify-between px-5 py-3 border-b border-slate-700/30 last:border-0">
+        <div class="text-sm text-slate-200">{{ inv.email }}</div>
+        <span class="text-xs text-slate-500">{{ inv.role }} · pending</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% else %}
+  <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-10 text-center">
+    <div class="text-4xl mb-4">👥</div>
+    <h2 class="text-lg font-semibold text-white mb-2">You're not in a team yet</h2>
+    <p class="text-slate-400 text-sm">Teams let you share a credit pool and collaborate. Team creation is available via the API.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

@@ -172,8 +172,11 @@ app/
 
 Refactor only with a green safety net and a freeze per step.
 
-0. **Prereq:** add a **smoke test** (`tests/`) that boots the app and asserts every
-   route returns < 500, plus the existing template-render checks. Freeze.
+0. **Prereq: DONE** ✅ — `tests/test_smoke.py` boots the app, runs setup, asserts the
+   core journey + platform pages render (no 5xx), and enforces structural invariants
+   (routes present, scaffold imports, platform↛product/delivery). `tests/conftest.py`
+   pins to SQLite. 48 tests green. It already caught two real 500s (`/team`,
+   `/invoices` had no templates) which are now fixed.
 1. Extract `platform/db` + `platform/settings` (lowest-level, no deps). Test. Freeze.
 2. Extract `platform/auth` (+providers) and `platform/users`. Test. Freeze.
 3. Split `platform/billing` out of users; extract `platform/admin`, `setup`,
