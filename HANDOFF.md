@@ -8,6 +8,9 @@
 
 Last updated: 2026-06-03 · Current freeze: `snapshot/v0.2.0-tier12` (`ec4a6f2`)
 
+**Companion docs:** `ARCHITECTURE.md` (folder structure, modular target, migration
+plan) · `CHANGELOG.md` (release history & freeze branches).
+
 ---
 
 ## 1. What the product is
@@ -22,6 +25,13 @@ A web app for QA / test professionals who have their **own** Jira + Xray instanc
 5. Approved artifact is pushed back into Jira/Xray as a Test issue.
 
 **Design principle:** human-in-the-loop. AI drafts, the tester decides.
+
+**Product status & go-to-market (confirmed by owner):** this is a **full commercial
+product**, not a personal tool or throwaway PoC. Planned launch on **4 surfaces**:
+(1) LinkedIn — owner profile + a self-built LinkedIn community; (2) Atlassian
+Marketplace (Jira Cloud app); (3) Xray Marketplace (SmartBear); (4) its own landing
+page on a **subdomain of the Network Logic main domain**. This drives the modular
+architecture goal — see `ARCHITECTURE.md`.
 
 ---
 
@@ -205,8 +215,16 @@ See `CHANGELOG.md` for what each release contains.
 ## 9. Open questions for the product owner (Ilyas)
 These were raised and parked — answer before large new work:
 1. **The "few problems"** beyond the known Xray issue — to be listed.
-2. **End goal:** personal tool, client-facing PoC/demo, or a real product to sell?
-   This sets the bar for "good enough" on every decision.
+2. ~~**End goal**~~ — **ANSWERED:** full commercial product, 4 launch surfaces
+   (LinkedIn community, Atlassian Marketplace, Xray Marketplace, Network Logic
+   subdomain). See §1 and `ARCHITECTURE.md`.
+
+### Agreed direction: modular skeleton
+Owner wants the folder structure evolved to be **modular** (reduce risk of breaking
+unrelated things) and **reusable as a skeleton for other products**. Target
+architecture and an incremental, freeze-per-step migration plan are captured in
+`ARCHITECTURE.md` §3–§4. **Not started** — awaiting go-ahead; a boot/route smoke
+test is the prerequisite (step 0).
 
 ---
 
