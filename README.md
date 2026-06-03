@@ -3,6 +3,11 @@
 **AI-Powered Test Intelligence** — by Network Logic Limited  
 *AI drafts. You review. Your expertise, accelerated.*
 
+> ⚠️ **Picking up work?** Read [`HANDOFF.md`](./HANDOFF.md) first — it describes
+> the *actual current state* (Milestone 1: local Windows + SQLite). Parts of this
+> README are aspirational (marketplace, Postgres-only, Atlassian Connect) and do
+> not reflect what runs today. See [`CHANGELOG.md`](./CHANGELOG.md) for release history.
+
 ---
 
 ## What is Verid-iq?
