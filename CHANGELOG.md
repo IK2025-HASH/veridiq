@@ -8,6 +8,40 @@ of them: `git reset --hard origin/<snapshot-branch>`.
 
 ---
 
+## [0.4.0] — 2026-06-03 · Per-item Xray push + error handling
+**Freeze branch:** `snapshot/v0.4.0-per-item-xray` · **Commit:** `a9a733c`
+
+Each AI-generated test case / scenario / charter is now its own Jira issue.
+Error messages are readable. Long Jira descriptions no longer block generation.
+
+### Fixed
+- **Xray push was one big blob** — all test cases pushed into a single Jira issue
+  description. Now batch types (`Test Cases`, `BDD Scenarios`, `Negative Test Cases`,
+  `Exploratory Charters`) are parsed after generation into individual cards, each
+  with its own **Push** button. `Push All` pushes them sequentially and shows
+  live progress (`Pushing 2/5…`). Each issue is linked back to the source story.
+- **`[object Object]` error on generation** — FastAPI 422 validation errors returned
+  an array which the browser stringified to `[object Object]`. Added a `readError()`
+  helper that turns 422 arrays, plain strings, rate-limit shapes, and anything else
+  into a readable message. Applied to the generate path and both push paths.
+- **5000-character input limit blocked long Jira descriptions** — issues whose
+  description contained a full test-case document (e.g. APR-38) exceeded the limit
+  and generation never started. Raised `max_length` from 5 000 → 50 000 characters.
+
+### Added
+- **"Open your Xray board ↗" link** after Push All — links to the project's Jira
+  issue list filtered to that project, newest first. URL is captured from the
+  first created issue so it adapts to any Jira site automatically.
+- **Test-evidence reporting** (`test-evidence.bat`, `pytest-html==4.1.1`) — one-click
+  HTML + JUnit XML test report generation (gitignored `reports/`).
+
+### Notes
+- 48 smoke + unit tests green.
+- Single-doc types (Test Plan, Defect Report, AC Review, Regression Impact) retain
+  the original single-push flow unchanged.
+
+---
+
 ## [0.3.0] — 2026-06-03 · Step-0 smoke test + modular scaffold
 **Freeze branch:** `snapshot/v0.3.0-smoketest` · **Commit:** `8d4c1bc`
 
