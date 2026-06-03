@@ -14,6 +14,20 @@ What is tested, where, and how to see it. Companion to `DEFECTS.md`.
 > If you see `15 passed` you are on an OLD checkout — `git pull` to get the smoke
 > test (then it's **48**).
 
+## Test-run evidence (reports)
+Screenshots are not test evidence. Generate proper, reproducible reports instead:
+- **One click:** double-click **`test-evidence.bat`** (run from the activated venv).
+- **Or by command:**
+  ```
+  pytest tests/ -v --junitxml=reports/junit.xml --html=reports/report.html --self-contained-html
+  ```
+This writes:
+- `reports/report.html` — readable page: every test, pass/fail, timing, failure detail.
+- `reports/junit.xml` — standard CI/audit format.
+
+`reports/` is **gitignored** — regenerate any time; nothing is committed. Requires
+`pytest-html` (in `requirements.txt`).
+
 ## Where the tests live
 | File | What it covers |
 |---|---|
