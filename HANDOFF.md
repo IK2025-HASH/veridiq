@@ -10,7 +10,8 @@ Last updated: 2026-06-03 · Current freeze: `snapshot/v0.2.0-tier12` (`ec4a6f2`)
 
 **Companion docs:** `ARCHITECTURE.md` (folder structure, modular target, migration
 plan) · `CHANGELOG.md` (release history & freeze branches) · `RACI.md` (roles &
-responsibilities, runtime + build).
+responsibilities, runtime + build) · `DEFECTS.md` (defect register) · `TEST_PLAN.md`
+(what's tested + how to see it).
 
 ---
 
@@ -209,6 +210,9 @@ See `CHANGELOG.md` for what each release contains.
   `web/team.html` and `web/invoices.html`.
 
 ## 7. Known problems (open)
+> Canonical, fully-detailed list with severities/status is in **`DEFECTS.md`**.
+> Summary of what's still open: VRD-D011 (Xray push), VRD-D012 (non-admin users
+> not persisted — deferred to M2), VRD-D013 (README drift). Below is the short form.
 1. **Xray push** — reported failing ("Xray does not connect"). The exact error
    text from the **Approve & Push to Xray** button has not yet been captured, so
    root cause is unconfirmed. **Important context (§3b):** the previous MVP
