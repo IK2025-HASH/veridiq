@@ -1,8 +1,9 @@
 # Copyright © 2026 Network Logic Limited. All rights reserved.
 
 import base64
-import httpx
 from typing import Optional
+
+import httpx
 
 
 class JiraClient:

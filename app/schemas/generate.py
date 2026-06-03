@@ -1,7 +1,8 @@
 # Copyright © 2026 Network Logic Limited. All rights reserved.
 
-from pydantic import BaseModel, Field
 from typing import Literal
+
+from pydantic import BaseModel, Field
 
 GenerationType = Literal[
     "TEST_CASES",

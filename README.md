@@ -3,154 +3,112 @@
 **AI-Powered Test Intelligence** — by Network Logic Limited  
 *AI drafts. You review. Your expertise, accelerated.*
 
-> ⚠️ **Picking up work?** Read [`HANDOFF.md`](./HANDOFF.md) first — it describes
-> the *actual current state* (Milestone 1: local Windows + SQLite). Parts of this
-> README are aspirational (marketplace, Postgres-only, Atlassian Connect) and do
-> not reflect what runs today. See [`CHANGELOG.md`](./CHANGELOG.md) for release history.
+[![CI](https://github.com/IK2025-HASH/veridiq/actions/workflows/ci.yml/badge.svg)](https://github.com/IK2025-HASH/veridiq/actions/workflows/ci.yml)
 
 ---
 
-## What is Verid-iq?
+## What it does
 
-Verid-iq is an AI-assisted software testing platform that generates professional test cases, BDD scenarios, defect reports, exploratory charters, and more — directly from your user stories and acceptance criteria.
+Verid-iq connects to your Jira, reads your stories, and uses Claude AI to
+generate professional test artifacts — test cases, BDD scenarios, negative
+tests, test plans, defect reports, exploratory charters, AC reviews, and
+regression impact analysis.
 
-Built as a Python/FastAPI web application and Atlassian Connect app for Jira, distributed on the Atlassian Marketplace and SmartBear Marketplace.
+**Human-in-the-loop by design:** AI drafts, you review, you approve.
+Each approved artifact is pushed back to Jira/Xray as its own linked issue.
 
 ---
 
-## Architecture
+## Quick start (Windows, local)
 
+**One click:**
 ```
-veridiq/
-├── app/
-│   ├── main.py                   # FastAPI entry point
-│   ├── config.py                 # Settings (env-driven)
-│   ├── database.py               # Async PostgreSQL
-│   ├── api/
-│   │   ├── auth.py               # Registration, LinkedIn OAuth, 2FA, sessions
-│   │   ├── users.py              # Profile, team, credits, invoices
-│   │   ├── generate.py           # AI generation endpoints (streaming SSE)
-│   │   └── web.py                # Page routes
-│   ├── core/
-│   │   ├── ai_engine.py          # Anthropic API integration
-│   │   ├── layer_resolver.py     # 3-layer AI resolution engine
-│   │   ├── knowledge.py          # Knowledge volume loader
-│   │   ├── prompt_templates.py   # System prompts (8 generation types)
-│   │   ├── auth.py               # JWT / password utilities
-│   │   ├── security.py           # 2FA, sessions, email verification
-│   │   └── linkedin_oauth.py     # LinkedIn OAuth 2.0
-│   ├── models/
-│   │   ├── generation.py         # DB models (jobs, artifacts, platform knowledge)
-│   │   └── user.py               # User, team, credits, invoices
-│   └── templates/web/            # Jinja2 HTML templates
-├── knowledge_volumes/            # Upload 6 knowledge volumes here (not in git)
-├── tests/                        # pytest test suite
-├── requirements.txt
-├── railway.toml                  # Railway deployment config
-└── .env.example                  # Environment variable template
+run.bat
+```
+Opens at `http://127.0.0.1:8000`. On first boot, a setup wizard asks for
+your admin email, password, and Anthropic API key.
+
+**Manual:**
+```
+cd veridiq-new
+..\venv\Scripts\activate.bat
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
 ---
 
-## Quick Start
+## Run the tests
 
-```bash
-git clone https://github.com/IK2025-HASH/veridiq.git
-cd veridiq
-pip install -r requirements.txt
-cp .env.example .env
-# Edit .env — add your ANTHROPIC_API_KEY
-uvicorn app.main:app --reload
+```
+pytest tests/ -q
 ```
 
-Open http://localhost:8000/landing
+Expected: **48 passed** in ~3 seconds. No network or Postgres needed —
+the test suite runs against an in-memory SQLite database with fake keys.
+
+For a full HTML + JUnit XML report:
+```
+test-evidence.bat
+```
+Opens `reports\report.html` in the browser.
 
 ---
 
-## Knowledge Volumes
+## Tech stack
 
-Place the 6 Verid-iq knowledge Markdown files in `knowledge_volumes/`:
-
-- `vol1_testing_standards.md`
-- `vol2_test_design_techniques.md`
-- `vol3_bdd_gherkin.md`
-- `vol4_test_management.md`
-- `vol5_jira_xray_confluence.md`
-- `vol6_security_testing.md`
-
-These are excluded from git (`.gitignore`). Upload separately.
+| Layer | Technology |
+|---|---|
+| Web framework | FastAPI + Jinja2 templates |
+| Database | SQLite locally · PostgreSQL on Railway (auto-selected from `DATABASE_URL`) |
+| AI | Anthropic Claude (`claude-sonnet-4-6`) via official SDK |
+| Auth | bcrypt + JWT cookies (`python-jose`) |
+| Jira integration | Jira REST API v3 (Basic auth) |
 
 ---
 
-## Environment Variables
+## Project layout
 
 ```
-ANTHROPIC_API_KEY=sk-ant-...
-DATABASE_URL=postgresql+asyncpg://user:pass@host/veridiq
-SECRET_KEY=your-secret-key
-ENVIRONMENT=production
-
-# LinkedIn OAuth (optional)
-LINKEDIN_CLIENT_ID=
-LINKEDIN_CLIENT_SECRET=
-LINKEDIN_REDIRECT_URI=https://veridiq.networklogic.uk/auth/linkedin/callback
-
-# Email / SMTP (optional)
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=
-SMTP_PASSWORD=
-EMAIL_FROM=no-reply@networklogic.uk
-
-BASE_URL=https://veridiq.networklogic.uk
+app/
+  api/          — route handlers (web pages, Jira, generate, auth, admin)
+  core/         — AI engine, Jira client, prompt templates, settings service
+  templates/    — Jinja2 HTML templates
+  platform/     — (scaffold) auth, billing, knowledge, licensing, users
+  product/      — (scaffold) generation, Jira/Xray integrations
+  delivery/     — (scaffold) Atlassian Connect, webapp
+tests/
+  conftest.py   — hermetic test fixtures (throwaway SQLite, fake API keys)
+  test_smoke.py — end-to-end safety net (48 tests)
+  test_veridiq.py — unit tests
 ```
 
 ---
 
-## Deploy to Railway
+## Key docs
 
-1. Connect this repo to Railway
-2. Add environment variables (Settings → Variables)
-3. Railway auto-deploys on every push to `main`
-4. Domain: configure `veridiq.networklogic.uk` in Railway settings
-
----
-
-## 3-Layer AI Architecture
-
-| Layer | Source | Cost |
-|---|---|---|
-| Layer 1 | User's own prior context | 0 credits |
-| Layer 2 | Anonymised platform knowledge | 1 credit |
-| Layer 3 | Anthropic AI (full generation) | 3–10 credits |
+| File | Purpose |
+|---|---|
+| [`HANDOFF.md`](./HANDOFF.md) | Single source of truth — current state, how to run, known issues |
+| [`BACKLOG.md`](./BACKLOG.md) | Product backlog — 10 sprints, CI/CD plan, Definition of Done |
+| [`ARCHITECTURE.md`](./ARCHITECTURE.md) | Modular target architecture and migration plan |
+| [`CHANGELOG.md`](./CHANGELOG.md) | Release history and freeze branches |
+| [`DEFECTS.md`](./DEFECTS.md) | Defect register (VRD-Dnnn) |
+| [`TEST_PLAN.md`](./TEST_PLAN.md) | Test coverage map |
+| [`RACI.md`](./RACI.md) | Roles and responsibilities |
 
 ---
 
-## Features
+## Freeze branches (roll back to any working state)
 
-- 8 AI generation types (Test Cases, BDD, Defect Reports, Test Plans, and more)
-- Batch generation with n= parameter
-- 3-layer AI with credit economy
-- Email + LinkedIn OAuth registration
-- TOTP two-factor authentication
-- Session management
-- Team management with shared credit pools
-- Credit-based pricing with live dashboard
-- Invoice generation
-- Atlassian Connect app (Jira panel + Xray push)
-- Human-in-the-loop by design
+```
+git reset --hard origin/snapshot/v0.4.0-per-item-xray   # latest stable
+git reset --hard origin/snapshot/v0.3.0-smoketest
+git reset --hard origin/snapshot/v0.2.0-tier12
+git reset --hard origin/snapshot/v0.1.0-working
+```
 
 ---
 
-## Marketplaces
+## Licence
 
-- **Atlassian Marketplace** — Jira Cloud, Test Management category
-- **SmartBear Marketplace** — Xray ecosystem
-
----
-
-## License & Copyright
-
-© 2026 Network Logic Limited. All rights reserved.  
-Verid-iq is a registered trade mark of Network Logic Limited.  
-Unauthorised use, copying, or distribution is strictly prohibited.
+Copyright © 2026 Network Logic Limited. All rights reserved.

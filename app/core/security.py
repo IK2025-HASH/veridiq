@@ -2,14 +2,15 @@
 # Verid-iq — Security Service
 # Handles: 2FA (TOTP), email verification, password reset, session management
 
-import uuid
-import pyotp
+import logging
 import secrets
 import smtplib
-import logging
 from datetime import datetime, timedelta
-from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
+import pyotp
+
 from app.config import settings
 
 logger = logging.getLogger(__name__)

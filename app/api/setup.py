@@ -2,13 +2,14 @@
 # First-boot setup wizard — runs once, stores config in DB.
 
 import uuid
-from fastapi import APIRouter, Request, Form
-from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from pathlib import Path
 
+from fastapi import APIRouter, Form, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.templating import Jinja2Templates
+
 from app.core import settings_service
-from app.core.auth import hash_password, create_access_token
+from app.core.auth import create_access_token, hash_password
 from app.core.security import create_session
 
 router = APIRouter()

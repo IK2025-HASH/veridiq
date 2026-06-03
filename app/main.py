@@ -3,22 +3,23 @@
 
 import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
-from fastapi.responses import RedirectResponse
-from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
 from pathlib import Path
 
-from app.config import settings
-from app.core.knowledge import knowledge_store
-from app.core import settings_service
-from app.api import generate, web, users, auth
-from app.api.setup import router as setup_router
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+
+from app.api import auth, generate, users, web
 from app.api.admin import router as admin_router
 from app.api.jira import router as jira_router
+from app.api.setup import router as setup_router
+from app.config import settings
+from app.core import settings_service
+from app.core.knowledge import knowledge_store
 
 logging.basicConfig(
     level=logging.INFO,
@@ -56,8 +57,9 @@ async def lifespan(app: FastAPI):
             admin_email = await settings_service.get("admin_email")
             admin_pw_hash = await settings_service.get("admin_password_hash")
             if admin_id and admin_email and admin_pw_hash:
-                from app.api.users import USERS
                 import datetime as _dt
+
+                from app.api.users import USERS
                 USERS.setdefault(admin_id, {
                     "id": admin_id,
                     "email": admin_email,

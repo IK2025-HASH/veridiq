@@ -3,30 +3,44 @@
 # Covers: email registration, LinkedIn OAuth, email verification,
 #         password reset, 2FA setup/verify, session management
 
-import uuid
 import logging
+import uuid
 from datetime import datetime
-from fastapi import APIRouter, Request, Response, HTTPException
+from pathlib import Path
+
+from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from pathlib import Path
 from pydantic import BaseModel, EmailStr, Field
 
+from app.config import settings
 from app.core.auth import (
-    hash_password, verify_password,
-    create_access_token, decode_token,
+    create_access_token,
+    decode_token,
+    hash_password,
+    verify_password,
+)
+from app.core.linkedin_oauth import (
+    exchange_code_for_token,
+    get_linkedin_auth_url,
+    get_linkedin_profile,
+    validate_state,
 )
 from app.core.security import (
-    send_verification_email, send_password_reset_email,
-    verify_email_token, create_session, get_session,
-    revoke_session, revoke_all_sessions, get_user_sessions,
-    setup_totp, verify_totp, get_totp_enabled, disable_totp,
-    create_2fa_pending_token, consume_2fa_pending_token,
-)
-from app.config import settings
-from app.core.linkedin_oauth import (
-    get_linkedin_auth_url, validate_state,
-    exchange_code_for_token, get_linkedin_profile,
+    consume_2fa_pending_token,
+    create_2fa_pending_token,
+    create_session,
+    disable_totp,
+    get_session,
+    get_totp_enabled,
+    get_user_sessions,
+    revoke_all_sessions,
+    revoke_session,
+    send_password_reset_email,
+    send_verification_email,
+    setup_totp,
+    verify_email_token,
+    verify_totp,
 )
 
 logger = logging.getLogger(__name__)
@@ -34,7 +48,7 @@ router = APIRouter()
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))
 
 # Shared user store (wired to DB in production)
-from app.api.users import USERS, CREDIT_TXNS, TOPUP_PACKS, TIER_LABELS
+from app.api.users import CREDIT_TXNS, USERS
 
 LINKEDIN_ACCOUNTS: dict[str, str] = {}  # linkedin_id -> user_id
 
@@ -159,7 +173,7 @@ async def register(body: RegisterRequest, request: Request, response: Response):
         raise HTTPException(400, "An account with this email already exists")
 
     user_id = str(uuid.uuid4())
-    user = _make_user(
+    _make_user(
         user_id, body.email, body.display_name,
         hash_password(body.password), None, body.account_type
     )
@@ -416,7 +430,7 @@ async def security_page(request: Request):
     if not user:
         return RedirectResponse("/login")
     sessions = get_user_sessions(user["id"])
-    current_token = request.cookies.get("access_token", "")
+    request.cookies.get("access_token", "")  # noqa: F841 — reserved for future active-session highlight
     return templates.TemplateResponse(request=request, name="web/security.html", context={
         "user": user,
         "sessions": sessions,
@@ -439,7 +453,7 @@ async def revoke_session_endpoint(request: Request, session_id: str):
 @router.post("/api/auth/sessions/revoke-all")
 async def revoke_all_sessions_endpoint(request: Request, response: Response):
     user = require_user(request)
-    current_token = request.cookies.get("access_token", "")
+    request.cookies.get("access_token", "")  # noqa: F841 — reserved for future active-session highlight
     revoke_all_sessions(user["id"])
     response.delete_cookie("access_token")
     return {"ok": True, "redirect": "/login"}

@@ -1,9 +1,10 @@
 # Copyright © 2026 Network Logic Limited. All rights reserved.
 # Verid-iq Knowledge Engine — loads and serves the 6 testing knowledge volumes
 
-from pathlib import Path
-from app.config import settings
 import logging
+from pathlib import Path
+
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 

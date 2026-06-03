@@ -1,16 +1,13 @@
 # Copyright © 2026 Network Logic Limited. All rights reserved.
 
-import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, AsyncMock
-from pathlib import Path
+
+from app.core.ai_engine import BATCH_TYPES, GENERATION_LABELS, build_prompt
+from app.core.knowledge import KnowledgeStore
 
 # Test environment (SQLite, fake keys) is set centrally in tests/conftest.py,
 # which pytest loads before this module — so app imports against SQLite here too.
-
 from app.main import app
-from app.core.knowledge import KnowledgeStore
-from app.core.ai_engine import build_prompt, GENERATION_LABELS, BATCH_TYPES
 
 client = TestClient(app)
 

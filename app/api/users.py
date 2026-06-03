@@ -1,19 +1,17 @@
 # Copyright © 2026 Network Logic Limited. All rights reserved.
 # Verid-iq — User, Team, Credit & Invoice API Routes
 
-import uuid
 import secrets
+import uuid
 from datetime import datetime, timedelta
-from fastapi import APIRouter, Request, Response, HTTPException, Depends
+from pathlib import Path
+
+from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from pathlib import Path
 from pydantic import BaseModel, EmailStr, Field
 
-from app.core.auth import (
-    hash_password, verify_password,
-    create_access_token, create_refresh_token, decode_token
-)
+from app.core.auth import create_access_token, decode_token, hash_password, verify_password
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))

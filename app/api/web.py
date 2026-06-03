@@ -1,12 +1,13 @@
 # Copyright © 2026 Network Logic Limited. All rights reserved.
 
+from pathlib import Path
+
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 from fastapi.templating import Jinja2Templates
-from pathlib import Path
 
-from app.core.ai_engine import GENERATION_LABELS, GENERATION_ICONS, BATCH_TYPES
 from app.api.users import get_current_user
+from app.core.ai_engine import BATCH_TYPES, GENERATION_ICONS, GENERATION_LABELS
 
 router = APIRouter()
 templates = Jinja2Templates(directory=str(Path(__file__).parent.parent / "templates"))

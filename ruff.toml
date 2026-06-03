@@ -1,0 +1,27 @@
+# Ruff — fast Python linter
+# Runs in CI; also run locally with: ruff check .
+# Auto-fix most issues with: ruff check . --fix
+
+target-version = "py311"
+line-length = 120
+
+[lint]
+# E = pycodestyle errors, F = pyflakes, I = isort, W = warnings
+select = ["E", "F", "W", "I"]
+
+ignore = [
+  "E501",   # line too long — handled by formatter, not linter
+  "F401",   # imported but unused — too noisy during active dev
+  "E711",   # comparison to None — SQLAlchemy patterns need this
+  "E712",   # comparison to True/False — Jinja2 templates generate these
+  "E402",   # module import not at top — intentional in app init order
+  "W291",   # trailing whitespace — present in multi-line prompt strings; must not be altered
+]
+
+[lint.per-file-ignores]
+# Test files can use assert and wildcard imports freely
+"tests/**" = ["E501", "F811", "F841"]
+# Migration files are auto-generated
+"alembic/**" = ["E501", "F401", "E402"]
+# Prompt strings contain intentional trailing spaces — do not touch
+"app/core/prompt_templates.py" = ["W291", "W293"]

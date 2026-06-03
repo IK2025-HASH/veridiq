@@ -1,0 +1,47 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "sprint/**", "claude/**"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  test:
+    name: Lint + Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Run tests
+        env:
+          DATABASE_URL: "sqlite+aiosqlite:///./test_ci.db"
+          SECRET_KEY: "ci-secret-key-not-used-in-production"
+          ANTHROPIC_API_KEY: "sk-ant-test-placeholder"
+        run: |
+          pytest tests/ -v \
+            --junitxml=reports/junit.xml \
+            --html=reports/report.html \
+            --self-contained-html
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: reports/
+          retention-days: 30

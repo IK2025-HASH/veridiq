@@ -10,6 +10,7 @@
 #   pytest tests/test_smoke.py -q
 
 import pathlib
+
 import pytest
 
 # ── Pages that MUST render 200 for a logged-in admin (the core journey) ──────────

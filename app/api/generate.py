@@ -1,22 +1,22 @@
 # Copyright © 2026 Network Logic Limited. All rights reserved.
 
-import uuid
-import time
 import logging
-from fastapi import APIRouter, Request, HTTPException
+import uuid
+
+from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
+from app.config import settings
 from app.core.ai_engine import (
-    stream_generation,
-    generate_full,
-    GENERATION_LABELS,
-    GENERATION_ICONS,
     BATCH_TYPES,
+    GENERATION_ICONS,
+    GENERATION_LABELS,
+    generate_full,
+    stream_generation,
 )
 from app.schemas.generate import GenerateRequest, GenerateResponse
-from app.config import settings
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -47,7 +47,7 @@ async def generate_stream(request: Request, body: GenerateRequest):
 
         except Exception as e:
             logger.error(f"Stream error: {e}")
-            yield f"data: [ERROR] Generation failed. Please try again.\n\n"
+            yield "data: [ERROR] Generation failed. Please try again.\n\n"
 
     return StreamingResponse(
         event_generator(),

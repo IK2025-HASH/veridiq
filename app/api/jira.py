@@ -3,11 +3,11 @@
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from app.core.jira_client import JiraClient
 from app.api.users import get_current_user, require_user
+from app.core.jira_client import JiraClient
 
 logger = logging.getLogger(__name__)
 router = APIRouter()

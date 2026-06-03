@@ -2,8 +2,10 @@
 
 from datetime import datetime, timedelta
 from typing import Optional
+
 import bcrypt
 from jose import JWTError, jwt
+
 from app.config import settings
 
 # We use the bcrypt library directly rather than passlib — passlib 1.7.4 is

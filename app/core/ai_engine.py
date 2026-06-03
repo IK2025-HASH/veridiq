@@ -1,14 +1,15 @@
 # Copyright © 2026 Network Logic Limited. All rights reserved.
 # Verid-iq — AI Generation Engine
 
-import time
 import logging
+import time
 from typing import AsyncGenerator
+
 import anthropic
 
 from app.config import settings
 from app.core.knowledge import knowledge_store
-from app.core.prompt_templates import SYSTEM_ROLES, GENERATION_INSTRUCTIONS
+from app.core.prompt_templates import GENERATION_INSTRUCTIONS, SYSTEM_ROLES
 
 logger = logging.getLogger(__name__)
 

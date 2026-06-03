@@ -1,10 +1,11 @@
 # Copyright © 2026 Network Logic Limited. All rights reserved.
 # Admin module — settings management, user overview, credit grants.
 
-from fastapi import APIRouter, Request, Form
+from pathlib import Path
+
+from fastapi import APIRouter, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from pathlib import Path
 
 from app.core import settings_service
 from app.core.auth import decode_token

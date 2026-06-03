@@ -1,9 +1,11 @@
 # Copyright © 2026 Network Logic Limited. All rights reserved.
 # Verid-iq — LinkedIn OAuth 2.0 Integration
 
-import httpx
-import secrets
 import logging
+import secrets
+
+import httpx
+
 from app.config import settings
 
 logger = logging.getLogger(__name__)

@@ -8,8 +8,8 @@
 import logging
 import re
 from dataclasses import dataclass
-from app.core.knowledge import knowledge_store
-from app.core.ai_engine import build_prompt, stream_generation, generate_full
+
+from app.core.ai_engine import generate_full
 
 logger = logging.getLogger(__name__)
 

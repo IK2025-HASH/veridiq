@@ -1,9 +1,11 @@
 # Copyright © 2026 Network Logic Limited. All rights reserved.
 # Uses String(36) for the PK so this table works on both SQLite and PostgreSQL.
 
-from sqlalchemy import Column, String, Text, DateTime
 import uuid
 from datetime import datetime
+
+from sqlalchemy import Column, DateTime, String, Text
+
 from app.database import Base
 
 
