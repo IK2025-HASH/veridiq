@@ -8,6 +8,33 @@ of them: `git reset --hard origin/<snapshot-branch>`.
 
 ---
 
+## [0.3.0] — 2026-06-03 · Step-0 smoke test + modular scaffold
+**Freeze branch:** `snapshot/v0.3.0-smoketest` · **Commit:** `8d4c1bc`
+
+The EVOLVE-NEVER-BREAK safety net, the additive modular skeleton, and the
+project-handoff docs.
+
+### Added
+- **Smoke test** (`tests/test_smoke.py`) + `tests/conftest.py` (hermetic SQLite):
+  boots the app, runs setup, asserts the core journey + platform pages render
+  (no 5xx), and enforces structural invariants (routes present, scaffold imports,
+  `platform/` ↛ `product/`/`delivery/`). 48 tests green.
+- **Additive modular skeleton:** `app/platform/`, `app/product/`, `app/delivery/`
+  (empty packages + README specs) alongside untouched working code.
+- New platform module specs: `licensing/` (on-prem licence keys/seats/gating),
+  `knowledge/`, `users/`.
+- Docs: `HANDOFF.md`, `ARCHITECTURE.md`, `CHANGELOG.md`, `RACI.md`.
+
+### Fixed
+- `/team` and `/invoices` were linked in the nav but had **no templates → 500 in
+  production**. Added `web/team.html` and `web/invoices.html` (caught by the smoke test).
+
+### Notes
+- On-premise instance-licence distribution recorded as a first-class requirement.
+- No existing code moved; migration into the skeleton is incremental/freeze-per-step.
+
+---
+
 ## [0.2.0] — 2026-06-02 · Project browser + per-issue generate page
 **Freeze branch:** `snapshot/v0.2.0-tier12` · **Commit:** `ec4a6f2`
 
