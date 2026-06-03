@@ -9,7 +9,8 @@
 Last updated: 2026-06-03 · Current freeze: `snapshot/v0.2.0-tier12` (`ec4a6f2`)
 
 **Companion docs:** `ARCHITECTURE.md` (folder structure, modular target, migration
-plan) · `CHANGELOG.md` (release history & freeze branches).
+plan) · `CHANGELOG.md` (release history & freeze branches) · `RACI.md` (roles &
+responsibilities, runtime + build).
 
 ---
 
@@ -40,6 +41,12 @@ architecture goal — see `ARCHITECTURE.md`.
   no external services required. This is what we are stabilising now.
 - **Milestone 2 (not started):** same codebase deployed on **Railway** with
   **PostgreSQL**. DB is selected from `DATABASE_URL` at runtime — no code fork.
+
+**Distribution modes (one codebase):** SaaS (Network Logic hosts) AND **on-premise
+instance licence** (customer hosts; access via a signed, offline-validated licence
+key). This drives the `platform/licensing/` module. Owner also requires first-class
+**User Management**, **Knowledge Management**, and a **RACI** (see `RACI.md`).
+Architecture & module specs: `ARCHITECTURE.md` + each module's `README.md`.
 
 ---
 

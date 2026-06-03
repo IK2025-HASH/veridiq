@@ -20,6 +20,18 @@ Verid-iq is a **full commercial product**, not a personal tool or throwaway PoC.
 3. **Xray Marketplace** — SmartBear / Xray ecosystem.
 4. **Own landing page** — a subdomain of the Network Logic main domain.
 
+**Distribution modes (one codebase must serve all):**
+- **SaaS (multi-tenant)** — Network Logic hosts; access via credits/billing.
+- **On-premise instance licence** — the customer hosts it themselves; access
+  governed by a signed **licence key** validated **offline** (no phone-home).
+  This is why `platform/licensing/` exists and why feature-gating + seat caps are
+  first-class. See `app/platform/licensing/README.md`.
+- **Marketplace apps** — Atlassian/Xray-managed entitlements.
+
+**Required platform modules (owner-specified):** License Management, User
+Management, Knowledge Management — all in `platform/` so they're reusable. Roles &
+responsibilities are defined in `RACI.md`.
+
 **Architectural implications:**
 - The same core must serve **multiple delivery surfaces**: a standalone web app
   (subdomain) AND an embedded Atlassian Connect app (Jira iframe panels). So
@@ -112,9 +124,13 @@ app/
 │   │   ├── service.py
 │   │   ├── routes.py           # generic register/login/2FA              (← api/auth.py)
 │   │   └── providers/          # pluggable identity: linkedin_oauth, (future) atlassian
-│   ├── users/                  # user/team model + profile/team routes   (← models/user, api/users)
-│   ├── billing/                # credits, invoices, top-ups              (split out of api/users)
-│   ├── admin/                  # admin routes + templates                (← api/admin)
+│   ├── users/                  # ★ USER MANAGEMENT: users, roles, teams   (← models/user, api/users)
+│   ├── licensing/              # ★ LICENSE MANAGEMENT: on-prem keys,      (NEW)
+│   │                           #   seats, feature gating, offline validation
+│   ├── knowledge/              # ★ KNOWLEDGE MANAGEMENT: store/version/    (← core/knowledge + new CRUD)
+│   │                           #   serve volumes; global + customer-private
+│   ├── billing/                # credits, invoices, top-ups (SaaS)        (split out of api/users)
+│   ├── admin/                  # admin console: settings/users/licence/kb (← api/admin)
 │   ├── notifications/          # email/SMTP                              (extracted)
 │   ├── setup/                  # first-boot wizard                       (← api/setup)
 │   └── web/                    # _base.html, nav, static, template utils
@@ -173,6 +189,12 @@ Roll back to the step's freeze if anything regresses.
 ---
 
 ## 5. Status
-- §1 vision: **confirmed** by owner (full product, 4 launch surfaces).
-- §2 current structure: **accurate** as of `3918eff`.
-- §3 target + §4 plan: **proposed, awaiting go-ahead.** Nothing moved yet.
+- §1 vision: **confirmed** by owner (full product, 4 launch surfaces, SaaS +
+  on-prem licence distribution).
+- §2 current structure: accurate as of `3918eff`.
+- §3 target: **scaffolded additively** — the `platform/`, `product/`, `delivery/`
+  directories now exist (empty packages + READMEs) ALONGSIDE the working code.
+  Nothing has been moved; the app boots and behaves identically.
+- §4 migration: **not started.** Existing code is migrated into the scaffold
+  incrementally, freeze-per-step, once the step-0 smoke test exists.
+- New modules `licensing/`, `knowledge/`, `users/` have specs in their READMEs.
