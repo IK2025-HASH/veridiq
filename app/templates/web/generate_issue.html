@@ -122,8 +122,11 @@
         </div>
 
         <!-- Output content -->
-        <div id="output-content" class="hidden flex-1 p-5">
+        <div id="output-content" class="hidden flex-1 p-5 space-y-3">
+          <!-- Raw text: shown during streaming and for non-batch types -->
           <pre id="output-text" class="text-slate-200 text-xs leading-relaxed whitespace-pre-wrap font-mono overflow-x-auto"></pre>
+          <!-- Card view: shown after completion for batch types (TEST_CASES, BDD, etc.) -->
+          <div id="cards-container" class="hidden space-y-3"></div>
         </div>
       </div>
 
@@ -131,27 +134,46 @@
       <div id="xray-section" class="hidden bg-slate-800/60 border border-slate-700/50 rounded-xl p-5 space-y-4">
         <div class="flex items-center gap-2">
           <span class="text-xs font-semibold text-slate-300 uppercase tracking-wide">Approve &amp; Push to Xray</span>
-          <span class="text-xs text-slate-600">— review the output above, then push when happy</span>
+          <span class="text-xs text-slate-600">— review output above, then push when happy</span>
         </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="text-xs text-slate-500 block mb-1">Project Key</label>
-            <input id="xray-project" type="text" placeholder="e.g. APR"
-              class="w-full bg-slate-700/50 border border-slate-600/50 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-teal/50 font-mono uppercase"/>
-          </div>
+
+        <!-- Project key (always shown) -->
+        <div class="w-40">
+          <label class="text-xs text-slate-500 block mb-1">Project Key</label>
+          <input id="xray-project" type="text" placeholder="e.g. SCRUM"
+            class="w-full bg-slate-700/50 border border-slate-600/50 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-teal/50 font-mono uppercase"/>
+        </div>
+
+        <!-- Single-doc mode (non-batch types) -->
+        <div id="xray-single-fields" class="space-y-3">
           <div>
             <label class="text-xs text-slate-500 block mb-1">Test Title</label>
-            <input id="xray-summary" type="text" placeholder="Summary for the Xray test"
+            <input id="xray-summary" type="text" placeholder="Summary for the Xray issue"
               class="w-full bg-slate-700/50 border border-slate-600/50 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-teal/50"/>
           </div>
+          <div class="flex items-center gap-3">
+            <button onclick="pushSingleDoc()"
+              class="px-5 py-2.5 bg-purple/80 hover:bg-purple text-white font-bold rounded-lg text-sm transition flex items-center gap-2">
+              ✓ Approve &amp; Push to Xray
+            </button>
+            <span id="xray-msg" class="text-xs"></span>
+          </div>
         </div>
-        <div class="flex items-center gap-3">
-          <button onclick="pushToXray()"
-            class="px-5 py-2.5 bg-purple/80 hover:bg-purple text-white font-bold rounded-lg text-sm transition flex items-center gap-2">
-            ✓ Approve &amp; Push to Xray
-          </button>
-          <span id="xray-msg" class="text-xs"></span>
+
+        <!-- Batch mode (TEST_CASES, BDD, Negative, Charters) -->
+        <div id="xray-batch-fields" class="hidden space-y-3">
+          <p class="text-xs text-slate-400">
+            <span id="batch-count" class="text-teal font-bold">0</span> items parsed — push individually using the buttons above, or push all at once below.
+          </p>
+          <div class="flex items-center gap-3 flex-wrap">
+            <button id="push-all-btn" onclick="pushAllCards()"
+              class="px-5 py-2.5 bg-purple/80 hover:bg-purple text-white font-bold rounded-lg text-sm transition flex items-center gap-2">
+              ✓ Push All to Xray
+            </button>
+            <span id="xray-batch-msg" class="text-xs"></span>
+          </div>
         </div>
+
       </div>
 
     </div>
@@ -164,6 +186,85 @@ let selectedType  = null;
 let quantity      = 3;
 let fullOutput    = '';
 let issueData     = null;
+let parsedItems   = [];
+
+// Regex patterns to split batch output into individual items
+const ITEM_PATTERNS = {
+  'TEST_CASES':          /^## Test Case (\d+):\s*(.+)$/m,
+  'BDD_SCENARIOS':       /^## Scenario (\d+):\s*(.+)$/m,
+  'NEGATIVE_TEST_CASES': /^## Negative Test Case (\d+):\s*(.+)$/m,
+  'EXPLORATORY_CHARTER': /^## Charter (\d+):\s*(.+)$/m,
+};
+
+// Short prefix badge per type
+const ITEM_PREFIX = {
+  'TEST_CASES':          'TC',
+  'BDD_SCENARIOS':       'SC',
+  'NEGATIVE_TEST_CASES': 'NT',
+  'EXPLORATORY_CHARTER': 'CH',
+};
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function parseBatchItems(text, type) {
+  const pattern = ITEM_PATTERNS[type];
+  if (!pattern) return null;
+  const regex = new RegExp(pattern.source, 'gm');
+  const matches = [...text.matchAll(regex)];
+  if (matches.length < 1) return null;
+  return matches.map((m, i) => ({
+    num:    parseInt(m[1]),
+    title:  m[2].trim(),
+    content: text.slice(m.index, i + 1 < matches.length ? matches[i + 1].index : text.length).trim(),
+    pushed: false,
+  }));
+}
+
+function renderCards(items) {
+  const container = document.getElementById('cards-container');
+  container.innerHTML = '';
+  const prefix = ITEM_PREFIX[selectedType] || 'TC';
+
+  items.forEach((item, idx) => {
+    const div = document.createElement('div');
+    div.id = `tc-card-${idx}`;
+    div.className = 'bg-slate-700/30 border border-slate-600/50 rounded-xl p-4 space-y-2';
+    div.innerHTML = `
+      <div class="flex items-start justify-between gap-3">
+        <div class="flex items-center gap-2 flex-1 min-w-0">
+          <span class="text-teal font-mono font-bold text-xs bg-teal/10 px-2 py-0.5 rounded shrink-0">${prefix}-${item.num}</span>
+          <span class="text-white font-semibold text-sm leading-snug">${escHtml(item.title)}</span>
+        </div>
+        <button id="push-btn-${idx}" onclick="pushCard(${idx})"
+          class="shrink-0 px-3 py-1.5 bg-purple/60 hover:bg-purple/80 text-white text-xs font-bold rounded-lg transition whitespace-nowrap">
+          Push
+        </button>
+      </div>
+      <div id="push-msg-${idx}" class="text-xs hidden"></div>
+      <details>
+        <summary class="text-xs text-slate-500 hover:text-slate-300 cursor-pointer transition select-none">▸ Show content</summary>
+        <pre class="mt-2 text-slate-400 text-xs whitespace-pre-wrap leading-relaxed border-t border-slate-700/50 pt-2 overflow-x-auto">${escHtml(item.content)}</pre>
+      </details>
+    `;
+    container.appendChild(div);
+  });
+
+  // Switch output area to card view
+  document.getElementById('output-text').classList.add('hidden');
+  document.getElementById('cards-container').classList.remove('hidden');
+
+  // Switch xray section to batch mode
+  document.getElementById('batch-count').textContent = items.length;
+  document.getElementById('push-all-btn').textContent = `✓ Push All ${items.length} items to Xray`;
+  document.getElementById('xray-single-fields').classList.add('hidden');
+  document.getElementById('xray-batch-fields').classList.remove('hidden');
+}
 
 // Status badge colours
 function statusClass(s) {
@@ -182,9 +283,9 @@ function statusClass(s) {
     issueData = await r.json();
 
     // Breadcrumb
-    document.getElementById('bc-project').href    = `/projects/${issueData.project_key}/stories`;
+    document.getElementById('bc-project').href        = `/projects/${issueData.project_key}/stories`;
     document.getElementById('bc-project').textContent = issueData.project_key;
-    document.getElementById('bc-backlog').href    = `/projects/${issueData.project_key}/stories`;
+    document.getElementById('bc-backlog').href        = `/projects/${issueData.project_key}/stories`;
     document.getElementById('bc-backlog').textContent = 'Backlog';
 
     // Issue card
@@ -193,8 +294,8 @@ function statusClass(s) {
     document.getElementById('issue-type-badge').textContent  = issueData.issue_type;
 
     const sb = document.getElementById('issue-status-badge');
-    sb.textContent  = issueData.status;
-    sb.className    = 'text-xs px-2 py-0.5 rounded font-medium ' + statusClass(issueData.status);
+    sb.textContent = issueData.status;
+    sb.className   = 'text-xs px-2 py-0.5 rounded font-medium ' + statusClass(issueData.status);
 
     // Pre-fill Xray project
     document.getElementById('xray-project').value = issueData.project_key || '';
@@ -236,8 +337,11 @@ async function startGeneration() {
     issueData.description ? `\n${issueData.description}` : ''
   ].join('').trim();
 
-  // UI: loading state
-  fullOutput = '';
+  // Reset state
+  fullOutput   = '';
+  parsedItems  = [];
+
+  // UI: reset to loading state
   document.getElementById('empty-state').classList.add('hidden');
   document.getElementById('output-content').classList.add('hidden');
   document.getElementById('xray-section').classList.add('hidden');
@@ -247,12 +351,23 @@ async function startGeneration() {
   document.getElementById('stream-state').classList.remove('hidden');
   document.getElementById('stream-label').textContent = 'Generating…';
 
+  // Reset output area
+  document.getElementById('output-text').classList.remove('hidden');
+  document.getElementById('output-text').textContent = '';
+  document.getElementById('cards-container').classList.add('hidden');
+  document.getElementById('cards-container').innerHTML = '';
+
+  // Reset xray section to single mode (will switch if batch)
+  document.getElementById('xray-single-fields').classList.remove('hidden');
+  document.getElementById('xray-batch-fields').classList.add('hidden');
+  document.getElementById('xray-msg').textContent = '';
+  document.getElementById('xray-batch-msg').textContent = '';
+
   const btn = document.getElementById('generate-btn');
   btn.disabled = true;
   document.getElementById('btn-label').textContent = 'Generating…';
 
   const outputEl = document.getElementById('output-text');
-  outputEl.textContent = '';
 
   try {
     const resp = await fetch('/api/generate/stream', {
@@ -270,7 +385,7 @@ async function startGeneration() {
       throw new Error(d.detail || `HTTP ${resp.status}`);
     }
 
-    const reader = resp.body.getReader();
+    const reader  = resp.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
 
@@ -297,17 +412,30 @@ async function startGeneration() {
       }
     }
 
-    // Done
+    // Generation complete — try to parse into cards for batch types
+    const supportsQty = document.querySelector(`.type-btn[data-key="${selectedType}"]`)?.dataset?.supportsQty === 'true';
+    if (supportsQty && ITEM_PATTERNS[selectedType]) {
+      const items = parseBatchItems(fullOutput, selectedType);
+      if (items && items.length > 0) {
+        parsedItems = items;
+        renderCards(items);
+      }
+    }
+
+    // If not in card view, pre-fill the single-doc summary
+    if (parsedItems.length === 0) {
+      const label = document.querySelector(`.type-btn[data-key="${selectedType}"]`)?.querySelector('span:last-child')?.textContent || selectedType;
+      document.getElementById('xray-summary').value = `${label}: ${issueData.summary}`.slice(0, 200);
+    }
+
+    // Badge and action buttons
     const badge = document.getElementById('output-badge');
-    badge.textContent = '✓ Generated';
+    badge.textContent = parsedItems.length > 0
+      ? `✓ ${parsedItems.length} items`
+      : '✓ Generated';
     badge.classList.remove('hidden');
     document.getElementById('copy-btn').classList.remove('hidden');
     document.getElementById('download-btn').classList.remove('hidden');
-
-    // Pre-fill Xray summary
-    const label = document.querySelector(`.type-btn[data-key="${selectedType}"]`)?.querySelector('span:last-child')?.textContent || selectedType;
-    document.getElementById('xray-summary').value = `${label}: ${issueData.summary}`.slice(0, 200);
-
     document.getElementById('xray-section').classList.remove('hidden');
 
   } catch(e) {
@@ -321,7 +449,98 @@ async function startGeneration() {
   }
 }
 
-async function pushToXray() {
+// Push a single card by index
+async function pushCard(idx, projectKeyOverride) {
+  const projectKey = (projectKeyOverride || document.getElementById('xray-project').value.trim()).toUpperCase();
+  if (!projectKey) { alert('Enter a project key first.'); return; }
+
+  const item  = parsedItems[idx];
+  if (!item || item.pushed) return;
+
+  const btn   = document.getElementById(`push-btn-${idx}`);
+  const msgEl = document.getElementById(`push-msg-${idx}`);
+  const prefix = ITEM_PREFIX[selectedType] || 'TC';
+  const summary = `${prefix}-${item.num}: ${item.title}`.slice(0, 200);
+
+  btn.disabled = true;
+  btn.textContent = '…';
+  msgEl.textContent = 'Pushing…';
+  msgEl.className = 'text-xs text-slate-400';
+  msgEl.classList.remove('hidden');
+
+  try {
+    const r = await fetch('/api/jira/push-xray', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        project_key: projectKey,
+        summary:     summary,
+        content:     item.content,
+        linked_issue_key: ISSUE_KEY,
+      })
+    });
+    const data = await r.json();
+    if (!r.ok) {
+      msgEl.textContent = '✗ ' + (data.detail || 'Push failed');
+      msgEl.className   = 'text-xs text-red-400';
+      btn.textContent   = 'Retry';
+      btn.disabled      = false;
+    } else {
+      item.pushed = true;
+      btn.textContent = '✓';
+      btn.className   = btn.className.replace('bg-purple/60 hover:bg-purple/80', 'bg-emerald-700/40 cursor-default');
+      btn.disabled    = true;
+      msgEl.innerHTML = `<a href="${data.url}" target="_blank" class="text-teal underline">${data.key}</a> created`;
+      msgEl.className = 'text-xs text-emerald-400';
+    }
+  } catch(e) {
+    msgEl.textContent = '✗ Connection error';
+    msgEl.className   = 'text-xs text-red-400';
+    btn.textContent   = 'Retry';
+    btn.disabled      = false;
+  }
+}
+
+// Push all unpushed cards sequentially
+async function pushAllCards() {
+  const projectKey = document.getElementById('xray-project').value.trim().toUpperCase();
+  if (!projectKey) { alert('Enter a project key first.'); return; }
+
+  const btn    = document.getElementById('push-all-btn');
+  const msgEl  = document.getElementById('xray-batch-msg');
+  const unpushed = parsedItems.filter(item => !item.pushed);
+
+  if (unpushed.length === 0) {
+    msgEl.textContent = 'All items already pushed.';
+    msgEl.className   = 'text-xs text-slate-400';
+    return;
+  }
+
+  btn.disabled = true;
+  let done = 0;
+
+  for (let i = 0; i < parsedItems.length; i++) {
+    if (parsedItems[i].pushed) continue;
+    btn.textContent = `Pushing ${done + 1} / ${unpushed.length}…`;
+    await pushCard(i, projectKey);
+    done++;
+  }
+
+  const failed = parsedItems.filter(item => !item.pushed).length;
+  if (failed === 0) {
+    btn.textContent = `✓ All ${parsedItems.length} pushed`;
+    msgEl.textContent = 'Done — check your Xray board.';
+    msgEl.className   = 'text-xs text-emerald-400';
+  } else {
+    btn.textContent = `Push remaining (${failed} failed)`;
+    btn.disabled    = false;
+    msgEl.textContent = `${failed} item(s) failed — check the error messages above.`;
+    msgEl.className   = 'text-xs text-red-400';
+  }
+}
+
+// Single-doc push (non-batch types: Test Plan, Defect Report, etc.)
+async function pushSingleDoc() {
   const projectKey = document.getElementById('xray-project').value.trim().toUpperCase();
   const summary    = document.getElementById('xray-summary').value.trim();
   const msgEl      = document.getElementById('xray-msg');
@@ -339,8 +558,8 @@ async function pushToXray() {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
         project_key: projectKey,
-        summary: summary,
-        content: fullOutput,
+        summary:     summary,
+        content:     fullOutput,
         linked_issue_key: ISSUE_KEY,
       })
     });
@@ -369,10 +588,10 @@ function copyOutput() {
 function downloadOutput() {
   if (!fullOutput) return;
   const label = selectedType ? selectedType.toLowerCase().replace(/_/g, '-') : 'output';
-  const blob = new Blob([fullOutput], {type: 'text/plain'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `${ISSUE_KEY}-${label}.txt`;
+  const blob  = new Blob([fullOutput], {type: 'text/plain'});
+  const a     = document.createElement('a');
+  a.href      = URL.createObjectURL(blob);
+  a.download  = `${ISSUE_KEY}-${label}.txt`;
   a.click();
 }
 </script>
