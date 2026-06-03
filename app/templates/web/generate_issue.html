@@ -204,6 +204,27 @@ const ITEM_PREFIX = {
   'EXPLORATORY_CHARTER': 'CH',
 };
 
+// Turn any FastAPI / HTTP error response into a readable string.
+// Handles 422 validation (detail is an array of objects), plain strings,
+// rate-limit shapes, and anything else without printing "[object Object]".
+async function readError(resp) {
+  let body;
+  try { body = await resp.json(); }
+  catch { return `HTTP ${resp.status} ${resp.statusText}`; }
+
+  const d = body.detail ?? body.error ?? body.message ?? body;
+  if (typeof d === 'string') return d;
+  if (Array.isArray(d)) {
+    // Pydantic validation errors → "field: message"
+    return d.map(e => {
+      const field = Array.isArray(e.loc) ? e.loc[e.loc.length - 1] : '';
+      return field ? `${field}: ${e.msg}` : (e.msg || JSON.stringify(e));
+    }).join('; ');
+  }
+  if (d && typeof d === 'object') return JSON.stringify(d);
+  return `HTTP ${resp.status}`;
+}
+
 function escHtml(str) {
   return String(str)
     .replace(/&/g, '&amp;')
@@ -381,8 +402,7 @@ async function startGeneration() {
     });
 
     if (!resp.ok) {
-      const d = await resp.json();
-      throw new Error(d.detail || `HTTP ${resp.status}`);
+      throw new Error(await readError(resp));
     }
 
     const reader  = resp.body.getReader();
@@ -479,13 +499,13 @@ async function pushCard(idx, projectKeyOverride) {
         linked_issue_key: ISSUE_KEY,
       })
     });
-    const data = await r.json();
     if (!r.ok) {
-      msgEl.textContent = '✗ ' + (data.detail || 'Push failed');
+      msgEl.textContent = '✗ ' + (await readError(r));
       msgEl.className   = 'text-xs text-red-400';
       btn.textContent   = 'Retry';
       btn.disabled      = false;
     } else {
+      const data = await r.json();
       item.pushed = true;
       btn.textContent = '✓';
       btn.className   = btn.className.replace('bg-purple/60 hover:bg-purple/80', 'bg-emerald-700/40 cursor-default');
@@ -563,11 +583,11 @@ async function pushSingleDoc() {
         linked_issue_key: ISSUE_KEY,
       })
     });
-    const data = await r.json();
     if (!r.ok) {
-      msgEl.textContent = '✗ ' + (data.detail || 'Push failed');
+      msgEl.textContent = '✗ ' + (await readError(r));
       msgEl.className   = 'text-xs text-red-400';
     } else {
+      const data = await r.json();
       msgEl.innerHTML = `✓ Created <a href="${data.url}" target="_blank" class="text-teal underline font-semibold">${data.key}</a> in Xray (${data.issue_type})`;
       msgEl.className = 'text-xs text-emerald-400';
     }
