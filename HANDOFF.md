@@ -63,6 +63,66 @@ paste the Anthropic API key. After setup, log in and connect Jira at
 
 ---
 
+## 3a. Canonical environment & identity facts (do NOT re-ask)
+These are confirmed. If a value is `TBD`, it is genuinely unknown — fill it when
+provided; do not pester the owner for already-recorded values.
+
+| Fact | Value |
+|---|---|
+| Operating system | Windows |
+| Shell used | **Command Prompt (cmd.exe)** — not PowerShell. Use `activate.bat`, not `Activate.ps1`. |
+| Project folder | `C:\Users\Ilyas\OneDrive\Projects\veridiq-export\veridiq-new` |
+| Venv location | parent: `C:\Users\Ilyas\OneDrive\Projects\veridiq-export\venv` (shared) |
+| Activate (cmd) | `..\venv\Scripts\activate.bat` |
+| Run command | `run.bat`  *(or)*  `python -m uvicorn app.main:app --host 127.0.0.1 --port 8000` |
+| App URL (local) | http://127.0.0.1:8000 |
+| Owner name | Ilyas Kadri |
+| Admin login email | `ilyas@networklogic.uk` |
+| Owner contact email | `ilyas.kadri@gmail.com` |
+| Company | Network Logic Limited |
+| Git remote | `IK2025-HASH/veridiq` (GitHub) |
+| Real Jira base URL | **TBD** — never captured (transcript only had example URLs) |
+| Xray installed on their Jira? | **Yes (strongly implied)** — the previous MVP pushed tests that became real Jira keys (see §3b) |
+
+### Their Jira instance (observed in screenshots)
+| Project key | Name | Notes |
+|---|---|---|
+| `APR` | Abusive Payment Reference | ~23 issues; stories APR-22…APR-28 are "To Do", Medium |
+| `SCRUM` | story2testdemo | demo project |
+| Sample story | `APR-28` — "Scalability for peak load" | "System must handle peak transaction volumes without degradation." |
+
+---
+
+## 3b. Previous MVP — "StoryToTest" (the UX target & a working-Xray proof)
+Before Verid-iq, the owner built a previous MVP called **StoryToTest** (same Jira
+account, branding "Proof of Concept — Built by Ilyas Kadri", indigo/amber theme).
+Its screenshots are the **inspiration** for the current UX work (Tier 1–3) — they
+are a reference for the *journey*, NOT a pixel-for-pixel copy. The Verid-iq look
+(navy/teal, Network Logic branding) stays.
+
+**StoryToTest user journey (the target we're rebuilding in Verid-iq):**
+1. Landing → "Turn Jira Stories into Test Cases. Instantly." → Browse Projects / Connect Jira.
+2. `/projects` — project cards (APR, SCRUM).
+3. `/projects/APR/stories` — backlog table (Key, Summary, Type, Status, Priority) with a **Generate** button per row.
+4. `/generate/APR-28` — left: story context; right: **structured test-case cards**.
+
+**What StoryToTest did that Verid-iq does NOT yet (this is Tier 3):**
+- Output rendered as **individual test-case cards** — `TC-1`, `TC-2`, …, each with:
+  a coloured **type** tag (Positive / Negative / Edge), a **priority** tag (High…),
+  Description, **Preconditions**, numbered **Steps** (Action + Expected), and
+  **Expected Outcome**.
+- Per-card actions and a **"Push All to Xray"** button.
+- **CRITICAL PROOF:** each pushed test case became its **own Jira issue with its own
+  key** — observed: `APR-28` (story) → generated 8 cases → pushed as **APR-30,
+  APR-31, APR-32 …**, each card showing "✓ Pushed to Xray as APR-3x" and linked
+  back to the story. **So creating test issues on this Jira works** — Verid-iq's
+  current single-blob push failing is an *implementation gap in Verid-iq*, not a
+  limitation of the owner's Jira/Xray.
+
+This reframes the Xray problem (see §7): we have a known-good precedent to match.
+
+---
+
 ## 4. Tech stack & non-obvious decisions
 - FastAPI + Jinja2 templates + SQLAlchemy 2.0 + Anthropic SDK.
 - **DB:** SQLite (`aiosqlite`) locally, PostgreSQL (`asyncpg`) on Railway,
@@ -120,9 +180,13 @@ See `CHANGELOG.md` for what each release contains.
 ## 7. Known problems (open)
 1. **Xray push** — reported failing ("Xray does not connect"). The exact error
    text from the **Approve & Push to Xray** button has not yet been captured, so
-   root cause is unconfirmed. Most likely the target project lacks a **"Test"**
-   issue type (only present when Xray is installed); code falls back to "Task".
-   NEXT STEP: get the literal red `✗ …` message and map it to a fix.
+   root cause is unconfirmed. **Important context (§3b):** the previous MVP
+   (StoryToTest) successfully pushed individual test cases to this *same* Jira and
+   they became real issues (APR-30/31/32). So the Jira/Xray side works — the bug
+   is in Verid-iq's push implementation (likely issue-type name, payload shape, or
+   the single-blob-vs-per-card approach), NOT a missing "Test" type.
+   NEXT STEP: get the literal red `✗ …` message and compare our payload to the
+   StoryToTest approach (per-card create).
 2. **Regular users not persisted** — only admin survives restart (Milestone-1
    in-memory `USERS`). Acceptable for now; revisit for Milestone 2.
 3. README is out of date vs. actual Milestone-1 reality (see top of this file).
@@ -143,6 +207,22 @@ These were raised and parked — answer before large new work:
 1. **The "few problems"** beyond the known Xray issue — to be listed.
 2. **End goal:** personal tool, client-facing PoC/demo, or a real product to sell?
    This sets the bar for "good enough" on every decision.
+
+---
+
+## 9a. Do-not-re-ask glossary
+Quick answers to things that have been asked/derived before. Check here before
+asking the owner anything:
+- **"Where do I run commands?"** → §3a project folder, in cmd.exe.
+- **"How do I start the app?"** → `run.bat`, or manual uvicorn (§3a).
+- **"Why does venv activation do nothing?"** → cmd.exe needs `activate.bat`,
+  not `Activate.ps1` (silent no-op in cmd).
+- **"What are the project keys?"** → APR, SCRUM (§3a).
+- **"Did Xray push ever work?"** → Yes, in StoryToTest (§3b) on the same Jira.
+- **"What's the model id?"** → `claude-sonnet-4-6`.
+- **"What branch do we develop on / where's the freeze?"** → §6.
+- **Still genuinely unknown (TBD):** real Jira base URL; the owner's full list of
+  "few problems"; the end-goal (personal tool vs PoC vs sellable product).
 
 ---
 
