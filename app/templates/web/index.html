@@ -137,8 +137,10 @@
                   class="text-slate-500 hover:text-slate-300 text-xs transition">Sign out</button>
         </div>
         {% else %}
-        <span class="text-xs text-slate-500">by</span>
-        <span class="text-sm font-semibold text-teal tracking-wide">Network Logic</span>
+        <div class="flex items-center gap-2 border-l border-slate-700 pl-3">
+          <a href="/login" class="px-3 py-1.5 rounded border border-slate-600 text-slate-300 hover:border-teal/50 text-xs transition">Sign in</a>
+          <a href="/register" class="px-3 py-1.5 rounded bg-teal text-navy font-bold text-xs hover:bg-teal/80 transition">Get started free</a>
+        </div>
         {% endif %}
       </div>
     </div>
@@ -242,7 +244,7 @@ Acceptance Criteria:
             class="w-full bg-slate-800/60 border border-slate-600/50 rounded-lg p-4 text-sm text-slate-200 placeholder-slate-600 resize-none focus:outline-none focus:border-teal/50 focus:ring-1 focus:ring-teal/30 transition-colors"
           ></textarea>
           <div class="flex justify-between mt-1">
-            <span id="char-count" class="text-xs text-slate-600">0 / 5000 characters</span>
+            <span id="char-count" class="text-xs text-slate-600">0 / 50000 characters</span>
             <span class="text-xs text-slate-600">5 free generations per day</span>
           </div>
         </div>
@@ -426,7 +428,7 @@ Acceptance Criteria:
       const textarea = document.getElementById('input-text');
       textarea.addEventListener('input', () => {
         document.getElementById('char-count').textContent =
-          `${textarea.value.length} / 5000 characters`;
+          `${textarea.value.length} / 50000 characters`;
       });
 
       checkJiraConnection();
@@ -537,8 +539,8 @@ Acceptance Criteria:
           text += `\n\n${data.description.trim()}`;
         }
         const textarea = document.getElementById('input-text');
-        textarea.value = text.substring(0, 5000);
-        document.getElementById('char-count').textContent = `${textarea.value.length} / 5000 characters`;
+        textarea.value = text.substring(0, 50000);
+        document.getElementById('char-count').textContent = `${textarea.value.length} / 50000 characters`;
         // Pre-fill Xray fields
         document.getElementById('xray-project').value = data.project_key || '';
         document.getElementById('xray-summary').value =

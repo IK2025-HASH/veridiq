@@ -22,7 +22,8 @@ async def privacy(request: Request):
 
 @router.get("/landing", response_class=HTMLResponse)
 async def landing(request: Request):
-    return templates.TemplateResponse(request=request, name="web/landing.html")
+    return templates.TemplateResponse(request=request, name="web/landing.html",
+                                      context={"user": get_current_user(request)})
 
 @router.get("/", response_class=HTMLResponse)
 async def index(request: Request):
