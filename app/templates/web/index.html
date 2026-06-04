@@ -183,6 +183,361 @@
     </div>
   </section>
 
+  <!-- ── ANIMATED DEMO ─────────────────────────────────────────────────────── -->
+  <section class="max-w-5xl mx-auto px-6 py-16">
+
+    <!-- Header -->
+    <div class="text-center mb-10">
+      <div class="inline-flex items-center gap-2 bg-teal/10 border border-teal/30 rounded-full px-4 py-1.5 text-xs text-teal mb-4">
+        <span class="w-1.5 h-1.5 bg-teal rounded-full animate-pulse"></span>
+        Live demo
+      </div>
+      <h2 class="text-3xl font-bold text-white mb-3">From story to test suite<br/><span class="text-teal">in under 30 seconds</span></h2>
+      <p class="text-slate-400 text-sm">What used to take 4 hours now takes one click.</p>
+    </div>
+
+    <!-- Stage indicators -->
+    <div class="flex items-center justify-center gap-0 mb-8" id="demo-stages">
+      <div class="demo-stage-dot active" data-s="0">
+        <span class="demo-stage-num">1</span>
+        <span class="demo-stage-label">Paste story</span>
+      </div>
+      <div class="demo-stage-line"></div>
+      <div class="demo-stage-dot" data-s="1">
+        <span class="demo-stage-num">2</span>
+        <span class="demo-stage-label">Generate</span>
+      </div>
+      <div class="demo-stage-line"></div>
+      <div class="demo-stage-dot" data-s="2">
+        <span class="demo-stage-num">3</span>
+        <span class="demo-stage-label">Review</span>
+      </div>
+      <div class="demo-stage-line"></div>
+      <div class="demo-stage-dot" data-s="3">
+        <span class="demo-stage-num">4</span>
+        <span class="demo-stage-label">Push to Xray</span>
+      </div>
+    </div>
+
+    <!-- Mock browser window -->
+    <div style="background:#0d1b3e;border:1px solid rgba(0,201,192,.18);border-radius:16px;overflow:hidden;box-shadow:0 32px 80px rgba(0,0,0,.5),0 0 0 1px rgba(0,201,192,.06);">
+
+      <!-- Browser chrome -->
+      <div style="background:#060f24;padding:12px 16px;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(255,255,255,.06);">
+        <div style="display:flex;gap:6px;">
+          <span style="width:10px;height:10px;border-radius:50%;background:#ff5f57;display:block;"></span>
+          <span style="width:10px;height:10px;border-radius:50%;background:#febc2e;display:block;"></span>
+          <span style="width:10px;height:10px;border-radius:50%;background:#28c840;display:block;"></span>
+        </div>
+        <div style="flex:1;background:rgba(255,255,255,.05);border-radius:6px;padding:5px 12px;font-size:11px;color:#6b7fa3;font-family:monospace;">
+          veridiq.networklogic.uk/generate/APR-42
+        </div>
+        <div style="font-size:10px;color:#6b7fa3;font-family:monospace;white-space:nowrap;">⚡ 1000 credits</div>
+      </div>
+
+      <!-- Demo content area -->
+      <div style="padding:24px;min-height:340px;position:relative;">
+
+        <!-- STAGE 0: Paste story -->
+        <div class="demo-frame" id="demo-frame-0">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+            <div>
+              <div style="font-size:11px;color:#6b7fa3;margin-bottom:8px;font-family:monospace;">JIRA STORY · APR-42</div>
+              <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:14px;font-size:12px;color:#94a3b8;line-height:1.6;">
+                <div style="color:#00c9c0;font-weight:600;margin-bottom:6px;">As a registered user, I want to log in with my email and password so I can access my account.</div>
+                <div style="color:#64748b;font-size:11px;">Acceptance Criteria:<br/>
+                • Valid credentials → redirect to dashboard<br/>
+                • Invalid credentials → show error<br/>
+                • Account locks after 5 failed attempts<br/>
+                • Password input is masked</div>
+              </div>
+              <div style="margin-top:10px;display:flex;gap:8px;">
+                <div style="background:rgba(0,201,192,.08);border:1px solid rgba(0,201,192,.2);border-radius:6px;padding:6px 14px;font-size:11px;color:#00c9c0;cursor:pointer;">✓ Test Cases selected</div>
+                <div style="background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:6px 14px;font-size:11px;color:#64748b;">Qty: 3</div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;justify-content:center;align-items:center;gap:16px;">
+              <div style="text-align:center;">
+                <div style="font-size:32px;margin-bottom:8px;">⏱️</div>
+                <div style="font-size:11px;color:#64748b;">Manual approach</div>
+                <div style="font-size:28px;font-weight:800;color:#ef4444;font-family:monospace;">~4 hours</div>
+                <div style="font-size:10px;color:#64748b;margin-top:2px;">writing test cases by hand</div>
+              </div>
+              <div style="width:1px;height:24px;background:rgba(255,255,255,.1);"></div>
+              <div class="demo-cursor-target" id="gen-btn-highlight" style="background:linear-gradient(135deg,#00c9c0,#00b5ad);color:#060f24;padding:12px 28px;border-radius:10px;font-weight:800;font-size:13px;cursor:pointer;position:relative;box-shadow:0 0 30px rgba(0,201,192,.35);">
+                Generate ↗
+                <div class="demo-cursor" id="demo-cursor-0">🖱️</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- STAGE 1: Generating (spinner) -->
+        <div class="demo-frame" id="demo-frame-1" style="display:none;">
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:280px;gap:20px;">
+            <div class="demo-spinner"></div>
+            <div style="text-align:center;">
+              <div style="font-size:14px;color:#00c9c0;font-weight:600;margin-bottom:4px;">Verid-iq is thinking...</div>
+              <div style="font-size:12px;color:#64748b;">Analysing story · Applying ISTQB standards · Drafting test cases</div>
+            </div>
+            <div style="display:flex;gap:6px;" id="gen-dots">
+              <div class="gen-dot" style="animation-delay:0s"></div>
+              <div class="gen-dot" style="animation-delay:.2s"></div>
+              <div class="gen-dot" style="animation-delay:.4s"></div>
+              <div class="gen-dot" style="animation-delay:.6s"></div>
+              <div class="gen-dot" style="animation-delay:.8s"></div>
+            </div>
+            <div style="font-size:11px;color:#334155;font-family:monospace;">Layer 3 · claude-sonnet · ~8 credits</div>
+          </div>
+        </div>
+
+        <!-- STAGE 2: Review test cases -->
+        <div class="demo-frame" id="demo-frame-2" style="display:none;">
+          <div style="font-size:11px;color:#6b7fa3;margin-bottom:10px;font-family:monospace;">GENERATED · 3 TEST CASES · Ready to review</div>
+          <div style="display:flex;flex-direction:column;gap:8px;" id="tc-cards">
+            <div class="tc-card" style="animation-delay:.1s">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+                <span style="font-size:11px;font-weight:700;color:#00c9c0;">TC-1 · Valid login flow</span>
+                <span style="font-size:10px;background:rgba(34,197,94,.1);color:#4ade80;padding:2px 8px;border-radius:4px;border:1px solid rgba(34,197,94,.2);">Positive</span>
+              </div>
+              <div style="font-size:11px;color:#94a3b8;line-height:1.5;">Given valid credentials → User navigates to dashboard. Verify redirect, session cookie set, welcome message displayed.</div>
+            </div>
+            <div class="tc-card" style="animation-delay:.3s">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+                <span style="font-size:11px;font-weight:700;color:#f59e0b;">TC-2 · Invalid credentials</span>
+                <span style="font-size:10px;background:rgba(239,68,68,.1);color:#f87171;padding:2px 8px;border-radius:4px;border:1px solid rgba(239,68,68,.2);">Negative</span>
+              </div>
+              <div style="font-size:11px;color:#94a3b8;line-height:1.5;">Given wrong password → Error message shown, password field cleared, no redirect. Attempt counter increments.</div>
+            </div>
+            <div class="tc-card" style="animation-delay:.5s">
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+                <span style="font-size:11px;font-weight:700;color:#a855f7;">TC-3 · Account lockout</span>
+                <span style="font-size:10px;background:rgba(168,85,247,.1);color:#c084fc;padding:2px 8px;border-radius:4px;border:1px solid rgba(168,85,247,.2);">Edge Case</span>
+              </div>
+              <div style="font-size:11px;color:#94a3b8;line-height:1.5;">After 5 failed attempts → Account locked, lockout message shown, no further login possible until admin unlock.</div>
+            </div>
+          </div>
+          <div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end;">
+            <div style="font-size:11px;color:#64748b;padding:8px 12px;border:1px solid rgba(255,255,255,.08);border-radius:8px;">Edit</div>
+            <div class="demo-cursor-target" id="push-btn" style="background:linear-gradient(135deg,#7c3aed,#a855f7);color:white;padding:8px 20px;border-radius:8px;font-weight:700;font-size:12px;cursor:pointer;position:relative;box-shadow:0 0 20px rgba(124,58,237,.3);">
+              Push All to Xray ↗
+              <div class="demo-cursor" id="demo-cursor-2">🖱️</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- STAGE 3: Pushed to Xray -->
+        <div class="demo-frame" id="demo-frame-3" style="display:none;">
+          <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:280px;gap:16px;">
+            <div style="width:64px;height:64px;background:rgba(34,197,94,.1);border:2px solid rgba(34,197,94,.3);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;animation:demoPopIn .4s ease;">✅</div>
+            <div style="text-align:center;">
+              <div style="font-size:16px;font-weight:700;color:white;margin-bottom:6px;">3 test cases pushed to Xray</div>
+              <div style="font-size:12px;color:#64748b;">Each test case is now a linked Jira issue</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px;width:100%;max-width:320px;">
+              <div class="xray-pill" style="animation-delay:.1s">
+                <span style="color:#00c9c0;font-family:monospace;font-size:11px;font-weight:700;">APR-101</span>
+                <span style="color:#94a3b8;font-size:11px;">Valid login flow</span>
+                <span style="color:#4ade80;font-size:10px;margin-left:auto;">✓ Linked to APR-42</span>
+              </div>
+              <div class="xray-pill" style="animation-delay:.25s">
+                <span style="color:#00c9c0;font-family:monospace;font-size:11px;font-weight:700;">APR-102</span>
+                <span style="color:#94a3b8;font-size:11px;">Invalid credentials</span>
+                <span style="color:#4ade80;font-size:10px;margin-left:auto;">✓ Linked to APR-42</span>
+              </div>
+              <div class="xray-pill" style="animation-delay:.4s">
+                <span style="color:#00c9c0;font-family:monospace;font-size:11px;font-weight:700;">APR-103</span>
+                <span style="color:#94a3b8;font-size:11px;">Account lockout</span>
+                <span style="color:#4ade80;font-size:10px;margin-left:auto;">✓ Linked to APR-42</span>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:24px;margin-top:8px;padding-top:16px;border-top:1px solid rgba(255,255,255,.06);width:100%;max-width:320px;justify-content:center;">
+              <div style="text-align:center;">
+                <div style="font-size:10px;color:#64748b;margin-bottom:2px;">Manual time</div>
+                <div style="font-size:18px;font-weight:800;color:#ef4444;text-decoration:line-through;font-family:monospace;">4 hours</div>
+              </div>
+              <div style="font-size:20px;color:#6b7fa3;">→</div>
+              <div style="text-align:center;">
+                <div style="font-size:10px;color:#64748b;margin-bottom:2px;">With Verid-iq</div>
+                <div style="font-size:18px;font-weight:800;color:#00c9c0;font-family:monospace;" id="demo-timer">0s</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Progress bar -->
+    <div style="margin-top:16px;height:3px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;">
+      <div id="demo-progress-bar" style="height:100%;background:linear-gradient(to right,#00c9c0,#7c3aed);width:0%;transition:width .3s ease;border-radius:2px;"></div>
+    </div>
+
+    <!-- Controls -->
+    <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-top:16px;">
+      <button onclick="demoNav(-1)" style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);color:#94a3b8;padding:6px 16px;border-radius:8px;font-size:12px;cursor:pointer;transition:all .2s;" onmouseover="this.style.borderColor='rgba(0,201,192,.3)'" onmouseout="this.style.borderColor='rgba(255,255,255,.1)'">← Back</button>
+      <div style="display:flex;gap:6px;" id="demo-dots-nav">
+        <span class="demo-nav-dot active" onclick="demoGoTo(0)"></span>
+        <span class="demo-nav-dot" onclick="demoGoTo(1)"></span>
+        <span class="demo-nav-dot" onclick="demoGoTo(2)"></span>
+        <span class="demo-nav-dot" onclick="demoGoTo(3)"></span>
+      </div>
+      <button onclick="demoNav(1)" style="background:rgba(0,201,192,.1);border:1px solid rgba(0,201,192,.3);color:#00c9c0;padding:6px 16px;border-radius:8px;font-size:12px;cursor:pointer;transition:all .2s;" onmouseover="this.style.background='rgba(0,201,192,.2)'" onmouseout="this.style.background='rgba(0,201,192,.1)'">Next →</button>
+    </div>
+
+  </section>
+
+  <style>
+  .demo-stage-dot {
+    display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;
+  }
+  .demo-stage-num {
+    width:32px;height:32px;border-radius:50%;background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.12);display:flex;align-items:center;
+    justify-content:center;font-size:12px;font-weight:700;color:#64748b;
+    transition:all .3s;
+  }
+  .demo-stage-dot.active .demo-stage-num {
+    background:rgba(0,201,192,.15);border-color:rgba(0,201,192,.5);
+    color:#00c9c0;box-shadow:0 0 16px rgba(0,201,192,.2);
+  }
+  .demo-stage-dot.done .demo-stage-num {
+    background:rgba(34,197,94,.1);border-color:rgba(34,197,94,.3);color:#4ade80;
+  }
+  .demo-stage-label { font-size:10px;color:#64748b;font-family:monospace;white-space:nowrap; }
+  .demo-stage-dot.active .demo-stage-label { color:#00c9c0; }
+  .demo-stage-line { flex:1;height:1px;background:rgba(255,255,255,.08);margin:0 8px;margin-bottom:18px;min-width:40px; }
+
+  .demo-frame { animation: demoFadeIn .4s ease; }
+  @keyframes demoFadeIn { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+  @keyframes demoPopIn  { from{opacity:0;transform:scale(.5)} to{opacity:1;transform:scale(1)} }
+
+  .demo-spinner {
+    width:48px;height:48px;border-radius:50%;
+    border:3px solid rgba(0,201,192,.15);
+    border-top-color:#00c9c0;
+    animation:spin .8s linear infinite;
+  }
+  @keyframes spin { to{transform:rotate(360deg)} }
+
+  .gen-dot {
+    width:8px;height:8px;border-radius:50%;background:#00c9c0;
+    animation:genPulse 1.2s ease-in-out infinite;
+  }
+  @keyframes genPulse { 0%,100%{opacity:.2;transform:scale(.8)} 50%{opacity:1;transform:scale(1.2)} }
+
+  .tc-card {
+    background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);
+    border-radius:8px;padding:10px 12px;
+    animation:demoFadeIn .5s ease both;
+  }
+  .tc-card:hover { border-color:rgba(0,201,192,.2);background:rgba(0,201,192,.03); }
+
+  .xray-pill {
+    display:flex;align-items:center;gap:10px;
+    background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);
+    border-radius:8px;padding:8px 12px;
+    animation:demoFadeIn .4s ease both;
+  }
+
+  .demo-cursor {
+    position:absolute;bottom:-20px;right:-8px;font-size:16px;
+    animation:cursorClick 2s ease-in-out infinite;
+    pointer-events:none;
+  }
+  @keyframes cursorClick {
+    0%,60%  { transform:translate(0,0) scale(1); opacity:1; }
+    70%     { transform:translate(-2px,-2px) scale(.9); opacity:.8; }
+    80%     { transform:translate(0,0) scale(1); opacity:1; }
+    100%    { transform:translate(0,0) scale(1); opacity:1; }
+  }
+
+  .demo-nav-dot {
+    width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.15);
+    cursor:pointer;transition:all .2s;display:inline-block;
+  }
+  .demo-nav-dot.active { background:#00c9c0;width:20px;border-radius:4px; }
+  </style>
+
+  <script>
+  (function(){
+    const STAGES = 4;
+    let cur = 0;
+    let timer = null;
+    let demoSeconds = 0;
+    let demoTick = null;
+
+    function showStage(n) {
+      // Hide all frames
+      for(let i=0;i<STAGES;i++){
+        const f = document.getElementById('demo-frame-'+i);
+        if(f) f.style.display = 'none';
+      }
+      // Show target
+      const target = document.getElementById('demo-frame-'+n);
+      if(target){ target.style.display='block'; void target.offsetWidth; target.style.animation='none'; void target.offsetWidth; target.style.animation=''; }
+
+      // Update stage dots
+      document.querySelectorAll('.demo-stage-dot').forEach((d,i)=>{
+        d.classList.remove('active','done');
+        if(i<n) d.classList.add('done');
+        if(i===n) d.classList.add('active');
+      });
+
+      // Update nav dots
+      document.querySelectorAll('.demo-nav-dot').forEach((d,i)=>{
+        d.classList.toggle('active', i===n);
+      });
+
+      // Progress bar
+      const pct = n===0?5: n===1?35: n===2?70: 100;
+      const bar = document.getElementById('demo-progress-bar');
+      if(bar) bar.style.width = pct+'%';
+
+      // Timer on stage 3
+      if(n===3){
+        demoSeconds = 0;
+        if(demoTick) clearInterval(demoTick);
+        const timerEl = document.getElementById('demo-timer');
+        if(timerEl){
+          timerEl.textContent = '0s';
+          demoTick = setInterval(()=>{
+            demoSeconds++;
+            if(timerEl) timerEl.textContent = demoSeconds+'s';
+            if(demoSeconds>=28) clearInterval(demoTick);
+          }, 1000);
+        }
+      } else {
+        if(demoTick) clearInterval(demoTick);
+      }
+
+      cur = n;
+      scheduleNext();
+    }
+
+    function scheduleNext(){
+      if(timer) clearTimeout(timer);
+      const delays = [4000, 3000, 4000, 6000];
+      timer = setTimeout(()=>{
+        if(cur < STAGES-1) showStage(cur+1);
+        else showStage(0);
+      }, delays[cur] || 4000);
+    }
+
+    window.demoNav = function(dir){
+      if(timer) clearTimeout(timer);
+      let next = cur + dir;
+      if(next < 0) next = STAGES-1;
+      if(next >= STAGES) next = 0;
+      showStage(next);
+    };
+    window.demoGoTo = function(n){ if(timer) clearTimeout(timer); showStage(n); };
+
+    // Kick off
+    showStage(0);
+  })();
+  </script>
+
   <!-- ── MAIN APP ──────────────────────────────────────────────────────────── -->
   <main id="generator" class="max-w-7xl mx-auto px-6 pb-20">
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
