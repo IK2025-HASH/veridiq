@@ -18,13 +18,30 @@
     <p id="subtitle" class="text-slate-400 text-sm mt-1">Loading stories…</p>
   </div>
 
-  <!-- Loading -->
-  <div id="loading" class="flex items-center gap-3 text-slate-500 text-sm py-12 justify-center">
-    <svg class="animate-spin w-5 h-5 text-teal" fill="none" viewBox="0 0 24 24">
-      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-    </svg>
-    Fetching backlog…
+  <!-- Loading skeleton -->
+  <div id="loading" class="bg-slate-800/60 border border-slate-700/50 rounded-xl overflow-hidden animate-pulse">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-slate-700/50">
+          <th class="text-left px-5 py-3 w-28"><div class="h-3 w-10 bg-slate-700/80 rounded"></div></th>
+          <th class="text-left px-5 py-3"><div class="h-3 w-24 bg-slate-700/80 rounded"></div></th>
+          <th class="text-left px-5 py-3 w-28 hidden md:table-cell"><div class="h-3 w-12 bg-slate-700/80 rounded"></div></th>
+          <th class="text-left px-5 py-3 w-28 hidden md:table-cell"><div class="h-3 w-14 bg-slate-700/80 rounded"></div></th>
+          <th class="px-5 py-3 w-36"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for _ in range(8) %}
+        <tr class="border-b border-slate-700/30 last:border-0">
+          <td class="px-5 py-3.5"><div class="h-3 w-16 bg-slate-700/60 rounded"></div></td>
+          <td class="px-5 py-3.5"><div class="h-3 bg-slate-700/40 rounded" style="width:{{ loop.index * 7 % 40 + 40 }}%"></div></td>
+          <td class="px-5 py-3.5 hidden md:table-cell"><div class="h-3 w-12 bg-slate-700/30 rounded"></div></td>
+          <td class="px-5 py-3.5 hidden md:table-cell"><div class="h-3 w-14 bg-slate-700/30 rounded"></div></td>
+          <td class="px-5 py-3.5"><div class="h-7 w-20 bg-slate-700/30 rounded-lg ml-auto"></div></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </div>
 
   <!-- Error -->
@@ -70,7 +87,15 @@ const PROJECT_KEY = "{{ project_key }}";
     subtitle.textContent = `${issues.length} issue${issues.length !== 1 ? 's' : ''} found. Click Generate to create test artifacts.`;
 
     if (!issues.length) {
-      errEl.textContent = 'No issues found in this project.';
+      errEl.innerHTML = `
+        <div class="flex flex-col items-center gap-4 py-6">
+          <div class="w-14 h-14 rounded-full bg-slate-700/60 flex items-center justify-center text-3xl opacity-50">📝</div>
+          <div>
+            <p class="text-white font-semibold text-sm">No issues found</p>
+            <p class="text-slate-500 text-xs mt-1">This project has no issues yet, or your Jira query returned nothing.</p>
+          </div>
+          <a href="/projects" class="px-4 py-2 bg-teal/15 hover:bg-teal/25 text-teal text-xs font-semibold rounded-lg transition">← Back to Projects</a>
+        </div>`;
       errEl.classList.remove('hidden');
       return;
     }

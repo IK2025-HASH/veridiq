@@ -255,18 +255,78 @@ function parseBatchItems(text, type) {
   }));
 }
 
+function priorityClasses(p) {
+  const m = {
+    'critical': 'bg-red-900/40 text-red-400 border border-red-800/50',
+    'high':     'bg-orange-900/40 text-orange-400 border border-orange-800/50',
+    'medium':   'bg-amber-900/40 text-amber-400 border border-amber-800/50',
+    'low':      'bg-emerald-900/40 text-emerald-400 border border-emerald-800/50',
+  };
+  return m[(p||'').toLowerCase()] || 'bg-slate-700/50 text-slate-400 border border-slate-600/50';
+}
+
+function typeClasses(t) {
+  const m = {
+    'functional':  'bg-blue-900/30 text-blue-400',
+    'negative':    'bg-red-900/30 text-red-400',
+    'boundary':    'bg-amber-900/30 text-amber-400',
+    'integration': 'bg-purple/20 text-purple-300',
+    'regression':  'bg-teal/15 text-teal',
+    'edge case':   'bg-orange-900/30 text-orange-400',
+  };
+  return m[(t||'').toLowerCase()] || 'bg-slate-700/40 text-slate-400';
+}
+
+function parseCardDetails(content) {
+  const r = { priority:'', testType:'', preconditions:[], steps:[], expectedOutcome:'' };
+
+  const pm = content.match(/\*\*Priority:\*\*\s*([^\n]+)/);
+  if (pm) r.priority = pm[1].trim();
+
+  const tm = content.match(/\*\*Test Type:\*\*\s*([^\n]+)/);
+  if (tm) r.testType = tm[1].trim();
+
+  const precondBlock = content.match(/\*\*Preconditions:\*\*\n([\s\S]*?)(?=\n\*\*|\n##|$)/);
+  if (precondBlock) {
+    r.preconditions = precondBlock[1].split('\n')
+      .filter(l => l.trim().startsWith('-'))
+      .map(l => l.trim().replace(/^-\s*/, '').trim())
+      .filter(Boolean);
+  }
+
+  const stepsBlock = content.match(/\*\*Test Steps:\*\*\n([\s\S]*?)(?=\n\*\*|\n##|$)/);
+  if (stepsBlock) {
+    r.steps = stepsBlock[1].split('\n')
+      .filter(l => l.trim().startsWith('|') && !/^\s*\|[\s|:-]+\|\s*$/.test(l))
+      .slice(1)
+      .map(row => {
+        const cols = row.split('|').slice(1,-1).map(c => c.trim());
+        return { step: cols[0]||'', action: cols[1]||'', expected: cols[2]||'' };
+      })
+      .filter(s => s.action);
+  }
+
+  const om = content.match(/\*\*Expected Outcome:\*\*\s*([^\n]+(?:\n(?!\*\*|\n##)[^\n]+)*)/);
+  if (om) r.expectedOutcome = om[1].trim();
+
+  return r;
+}
+
 function renderCards(items) {
   const container = document.getElementById('cards-container');
   container.innerHTML = '';
   const prefix = ITEM_PREFIX[selectedType] || 'TC';
+  const isStructured = ['TEST_CASES', 'NEGATIVE_TEST_CASES'].includes(selectedType);
 
   items.forEach((item, idx) => {
+    const d = isStructured ? parseCardDetails(item.content) : null;
     const div = document.createElement('div');
     div.id = `tc-card-${idx}`;
-    div.className = 'bg-slate-700/30 border border-slate-600/50 rounded-xl p-4 space-y-2';
-    div.innerHTML = `
+    div.className = 'bg-slate-700/30 border border-slate-600/50 rounded-xl p-4 space-y-3';
+
+    let html = `
       <div class="flex items-start justify-between gap-3">
-        <div class="flex items-center gap-2 flex-1 min-w-0">
+        <div class="flex items-center gap-2 flex-wrap flex-1 min-w-0">
           <span class="text-teal font-mono font-bold text-xs bg-teal/10 px-2 py-0.5 rounded shrink-0">${prefix}-${item.num}</span>
           <span class="text-white font-semibold text-sm leading-snug">${escHtml(item.title)}</span>
         </div>
@@ -276,19 +336,73 @@ function renderCards(items) {
         </button>
       </div>
       <div id="push-msg-${idx}" class="text-xs hidden"></div>
-      <details>
-        <summary class="text-xs text-slate-500 hover:text-slate-300 cursor-pointer transition select-none">▸ Show content</summary>
-        <pre class="mt-2 text-slate-400 text-xs whitespace-pre-wrap leading-relaxed border-t border-slate-700/50 pt-2 overflow-x-auto">${escHtml(item.content)}</pre>
-      </details>
     `;
+
+    if (d) {
+      if (d.priority || d.testType) {
+        html += `<div class="flex items-center gap-2 flex-wrap">`;
+        if (d.priority) html += `<span class="text-xs px-2 py-0.5 rounded-full font-semibold ${priorityClasses(d.priority)}">${escHtml(d.priority)}</span>`;
+        if (d.testType) html += `<span class="text-xs px-2 py-0.5 rounded-full ${typeClasses(d.testType)}">${escHtml(d.testType)}</span>`;
+        html += `</div>`;
+      }
+
+      if (d.preconditions.length > 0) {
+        html += `
+          <details class="group">
+            <summary class="text-xs text-slate-500 hover:text-slate-300 cursor-pointer transition select-none flex items-center gap-1">
+              <span class="group-open:rotate-90 inline-block transition-transform">▸</span>
+              Preconditions (${d.preconditions.length})
+            </summary>
+            <ul class="mt-2 space-y-1 pl-3 border-l-2 border-slate-700/50">
+              ${d.preconditions.map(p => `<li class="text-xs text-slate-400 leading-relaxed">${escHtml(p)}</li>`).join('')}
+            </ul>
+          </details>`;
+      }
+
+      if (d.steps.length > 0) {
+        html += `
+          <div class="overflow-x-auto rounded-lg border border-slate-700/40">
+            <table class="w-full text-xs border-collapse">
+              <thead class="bg-slate-800/60">
+                <tr class="text-slate-500 text-left">
+                  <th class="px-3 py-2 font-medium w-8">#</th>
+                  <th class="px-3 py-2 font-medium">Action</th>
+                  <th class="px-3 py-2 font-medium">Expected Result</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${d.steps.map(s => `
+                  <tr class="border-t border-slate-700/30 hover:bg-slate-700/20">
+                    <td class="px-3 py-2 text-slate-600 font-mono">${escHtml(s.step)}</td>
+                    <td class="px-3 py-2 text-slate-300">${escHtml(s.action)}</td>
+                    <td class="px-3 py-2 text-slate-400">${escHtml(s.expected)}</td>
+                  </tr>`).join('')}
+              </tbody>
+            </table>
+          </div>`;
+      }
+
+      if (d.expectedOutcome) {
+        html += `
+          <div class="bg-teal/5 border border-teal/20 rounded-lg px-3 py-2">
+            <span class="text-xs text-teal/70 font-medium">Expected Outcome: </span>
+            <span class="text-xs text-slate-300">${escHtml(d.expectedOutcome)}</span>
+          </div>`;
+      }
+    } else {
+      html += `
+        <details>
+          <summary class="text-xs text-slate-500 hover:text-slate-300 cursor-pointer transition select-none">▸ Show content</summary>
+          <pre class="mt-2 text-slate-400 text-xs whitespace-pre-wrap leading-relaxed border-t border-slate-700/50 pt-2 overflow-x-auto">${escHtml(item.content)}</pre>
+        </details>`;
+    }
+
+    div.innerHTML = html;
     container.appendChild(div);
   });
 
-  // Switch output area to card view
   document.getElementById('output-text').classList.add('hidden');
   document.getElementById('cards-container').classList.remove('hidden');
-
-  // Switch xray section to batch mode
   document.getElementById('batch-count').textContent = items.length;
   document.getElementById('push-all-btn').textContent = `✓ Push All ${items.length} items to Xray`;
   document.getElementById('xray-single-fields').classList.add('hidden');
