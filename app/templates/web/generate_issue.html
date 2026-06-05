@@ -100,10 +100,13 @@
             <span class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Output</span>
             <span id="output-badge" class="hidden text-xs px-2 py-0.5 rounded-full bg-teal/15 text-teal font-medium"></span>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex items-center gap-2 flex-wrap justify-end">
             <button id="copy-btn" onclick="copyOutput()" class="hidden text-xs text-slate-500 hover:text-white border border-slate-600/50 hover:border-slate-500 px-3 py-1.5 rounded-lg transition">Copy</button>
-            <div id="download-btn" class="hidden flex items-center gap-1">
-              <span class="text-xs text-slate-600 mr-1">↓</span>
+            <div id="download-btn" class="hidden flex items-center gap-1.5 flex-wrap">
+              <input id="csv-test-set-key" type="text" placeholder="Test Set key e.g. APR-43"
+                class="hidden text-xs bg-slate-700/50 border border-slate-600/50 rounded-lg px-2 py-1.5 text-slate-300 focus:outline-none focus:border-teal/50 w-36 font-mono uppercase"
+                oninput="this.value=this.value.toUpperCase()"/>
+              <span class="text-xs text-slate-600">↓</span>
               <button onclick="downloadOutput('txt')" class="text-xs text-slate-500 hover:text-white border border-slate-600/50 hover:border-slate-500 px-2.5 py-1.5 rounded-l-lg transition">Text</button>
               <button onclick="downloadOutput('csv')" class="text-xs text-slate-500 hover:text-white border-y border-r border-slate-600/50 hover:border-slate-500 px-2.5 py-1.5 transition">CSV</button>
               <button onclick="downloadOutput('json')" class="text-xs text-slate-500 hover:text-white border-y border-r border-slate-600/50 hover:border-slate-500 px-2.5 py-1.5 rounded-r-lg transition">JSON</button>
@@ -657,6 +660,10 @@ async function startGeneration() {
     badge.classList.remove('hidden');
     document.getElementById('copy-btn').classList.remove('hidden');
     document.getElementById('download-btn').classList.remove('hidden');
+    if (parsedItems.length > 0) {
+      document.getElementById('csv-test-set-key').classList.remove('hidden');
+      if (createdTestSetKey) document.getElementById('csv-test-set-key').value = createdTestSetKey;
+    }
     document.getElementById('xray-section').classList.remove('hidden');
 
   } catch(e) {
@@ -901,6 +908,7 @@ function downloadOutput(fmt) {
   }
 
   if (fmt === 'csv') {
+    const csvSetKey = document.getElementById('csv-test-set-key')?.value.trim() || createdTestSetKey;
     let csv;
     if (parsedItems.length > 0 && ['TEST_CASES', 'NEGATIVE_TEST_CASES'].includes(selectedType)) {
       const rows = [['Test Set', 'ID', 'Title', 'Priority', 'Test Type', 'Preconditions', 'Steps', 'Expected Outcome']];
@@ -908,7 +916,7 @@ function downloadOutput(fmt) {
         const d = parseCardDetails(item.content);
         const prefix = ITEM_PREFIX[selectedType] || 'TC';
         rows.push([
-          createdTestSetKey,
+          csvSetKey,
           `${prefix}-${item.num}`,
           item.title,
           d.priority,
@@ -923,7 +931,7 @@ function downloadOutput(fmt) {
       const rows = [['Test Set', 'ID', 'Title', 'Content']];
       parsedItems.forEach(item => {
         const prefix = ITEM_PREFIX[selectedType] || 'TC';
-        rows.push([createdTestSetKey, `${prefix}-${item.num}`, item.title, item.content]);
+        rows.push([csvSetKey, `${prefix}-${item.num}`, item.title, item.content]);
       });
       csv = rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
     } else {

@@ -1,9 +1,12 @@
 # Copyright © 2026 Network Logic Limited. All rights reserved.
 
 import re
+import logging
 import base64
 import httpx
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 
 class JiraClient:
@@ -276,17 +279,27 @@ class JiraClient:
 
         return result
 
-    async def _push_xray_steps(self, client: httpx.AsyncClient, issue_key: str, steps: list) -> None:
-        """Push structured test steps to Xray via REST API v1."""
-        for i, s in enumerate(steps):
-            try:
-                await client.post(
-                    f"{self.base_url}/rest/raven/1.0/api/test/{issue_key}/step",
-                    headers=self._headers,
-                    json={"step": s["action"], "data": "", "result": s["expected"]},
-                )
-            except Exception:
-                pass
+    async def _push_xray_steps(self, client: httpx.AsyncClient, issue_key: str, steps: list) -> bool:
+        """Push structured test steps to Xray via REST API v1. Returns True on success."""
+        success = 0
+        for s in steps:
+            for body in [
+                {"step": s["action"], "data": "", "result": s["expected"]},
+                {"action": s["action"], "data": "", "result": s["expected"]},
+            ]:
+                try:
+                    r = await client.post(
+                        f"{self.base_url}/rest/raven/1.0/api/test/{issue_key}/step",
+                        headers=self._headers,
+                        json=body,
+                    )
+                    logger.debug(f"Xray step API {issue_key}: {r.status_code} {r.text[:120]}")
+                    if r.is_success:
+                        success += 1
+                        break
+                except Exception as e:
+                    logger.debug(f"Xray step API exception: {e}")
+        return success == len(steps)
 
     async def create_xray_test(
         self,
