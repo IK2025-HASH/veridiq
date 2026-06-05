@@ -58,7 +58,7 @@ async def settings_page(request: Request):
     xray_client_id = await settings_service.get("xray_client_id") or ""
     current = {
         "anthropic_api_key_masked": (api_key[:12] + "..." + api_key[-4:]) if api_key else "",
-        "anthropic_model": await settings_service.get("anthropic_model") or "claude-sonnet-4-20250514",
+        "anthropic_model": await settings_service.get("anthropic_model") or "claude-sonnet-4-6",
         "smtp_host": await settings_service.get("smtp_host") or "",
         "smtp_port": await settings_service.get("smtp_port") or "587",
         "smtp_user": await settings_service.get("smtp_user") or "",
@@ -78,7 +78,7 @@ async def settings_page(request: Request):
 async def settings_save(
     request: Request,
     anthropic_api_key: str = Form(default=""),
-    anthropic_model: str = Form(default="claude-sonnet-4-20250514"),
+    anthropic_model: str = Form(default="claude-sonnet-4-6"),
     smtp_host: str = Form(default=""),
     smtp_port: str = Form(default="587"),
     smtp_user: str = Form(default=""),
