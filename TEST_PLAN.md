@@ -54,9 +54,9 @@ uploaded as the `playwright-screenshots` artifact under the **Playwright Screens
 | Test | Asserts |
 |---|---|
 | `test_app_boots` | App starts (lifespan runs); `/api/health` returns ok |
-| `test_core_pages_render[…]` ×16 | Each core page renders **200, no 5xx**: `/`, `/landing`, `/terms`, `/privacy`, `/dashboard`, `/projects`, `/projects/APR/stories`, `/generate/APR-28`, `/credits`, `/profile`, `/team`, `/invoices`, `/security`, `/admin`, `/admin/settings`, `/admin/users` |
+| `test_core_pages_render[…]` ×15 | Each core page renders **200, no 5xx**: `/landing`, `/terms`, `/privacy`, `/dashboard`, `/projects`, `/projects/APR/stories`, `/generate/APR-28`, `/credits`, `/profile`, `/team`, `/invoices`, `/security`, `/admin`, `/admin/settings`, `/admin/users` |
 | `test_core_apis_ok[…]` ×4 | `/api/health`, `/api/generation-types`, `/api/jira/status`, `/api/credits/balance` return 200 |
-| `test_no_route_5xx[…]` ×8 | Jira/auth/setup GET routes never 5xx (controlled 4xx is fine) |
+| `test_no_route_5xx[…]` ×9 | Jira/auth/setup GET routes + `/` (now redirects 302 for logged-in users) never 5xx (controlled 4xx/302 is fine) |
 | `test_generate_input_validation` | `/api/generate` rejects bad input with 422 (no crash) |
 | `test_expected_routes_registered` | Core routes still exist (catches accidental removal) |
 | `test_scaffold_packages_import` | `platform/`, `product/`, `delivery/` packages import |
@@ -90,12 +90,19 @@ Run separately (requires `playwright install chromium`). CI uploads screenshots 
 ## What is NOT yet covered (gaps / TODO)
 - **AI generation output** — not asserted (would call the real Anthropic API). The
   engine is exercised only up to prompt assembly.
-- **Xray push** — VRD-D011 now fixed and verified manually; a mock-Jira pytest case
-  would move it to fully Verified (auto-regression protection).
+- **Xray push (mock-Jira)** — VRD-D011 fixed; a mock-Jira pytest case would add
+  auto-regression protection for individual test case push and Test Set creation.
+- **Xray step API (VRD-D015)** — `_push_xray_steps` not unit-tested with a mock HTTP
+  client. Should be added alongside the Xray Cloud v2 API implementation (S7-0).
+- **Test Set linking (VRD-D016)** — `add_tests_to_set` not unit-tested. Add alongside
+  S7-0 with mock Xray Cloud v2 responses.
 - **Auth flows** — register/login/2FA happy-paths beyond setup are not asserted.
 - **Token/id routes** — `/invoices/{id}`, `/auth/reset-password/{token}`, `/join/{token}`
   need fixtures; excluded from smoke for now.
 - **Playwright: authenticated pages** — current browser tests cover only public pages.
   Add login flow + generate page + admin page in next Playwright iteration.
+- **Download format output** — Text/CSV/JSON download logic in `generate_issue.html` is
+  client-side JS; not covered by pytest. Browser-level Playwright test needed.
+- **Inline card edit** — JS-only; not covered. Playwright test needed.
 
 New fixes should add a test here so the defect moves to **Verified** in `DEFECTS.md`.

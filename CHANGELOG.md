@@ -8,29 +8,45 @@ of them: `git fetch origin <branch> && git reset --hard origin/<branch>`.
 
 ---
 
-## [1.7.0] — 2026-06-05 · Test Set, Inline Edit, Download Formats
+## [1.7.x] — 2026-06-05 · Test Set, Inline Edit, Download Formats, Xray Step API
 
 ### Added
-- **Test Set push:** "Group into Test Set" checkbox on the batch push panel. When checked,
-  `pushAllCards()` creates a Xray Test Set issue first (via new `/api/jira/push-test-set`
-  endpoint), pushes all test cases, then links them to the set via
-  `/api/jira/link-tests-to-set`. Board link includes a direct link to the Test Set issue.
-  Falls back to Task + `Test-Set` label on Jira instances without the Xray issue type;
-  uses Xray Server `raven` API for linking, with standard `issueLink` fallback.
-- **Inline card edit:** Each TC/BDD/Charter card now has an **Edit** button. Clicking it
-  replaces the card body with a resizable textarea pre-filled with the raw AI content.
-  **Save** re-parses and re-renders the card with the new content (title extracted from
-  heading); **Cancel** restores the original render. Edited content is pushed to Jira
-  on the next Push click.
-- **Download format selection:** The single Download button is replaced by a segmented
-  **Text / CSV / JSON** control. Text = plain `.txt` (unchanged). CSV = structured
-  spreadsheet with ID, Title, Priority, Test Type, Preconditions, Steps, Expected Outcome
-  columns (structured types) or ID/Title/Content (BDD/Charters). JSON = rich object array
-  with all parsed fields, or single-doc envelope for non-batch types.
+- **Test Set push:** "Group into Test Set" checkbox on the batch push panel (auto-checked
+  when generation type is TEST_CASES). `pushAllCards()` creates a Xray Test Set issue
+  first, pushes all test cases, then links them via Xray `raven` API with standard
+  `issueLink` ("Tests"/"is member of"/"Relates") fallback.
+  Button label changed from "Test Cases" → "Test Set".
+- **Xray step API:** Test steps are now pushed into Xray's structured Test Details tab
+  via `POST /rest/raven/1.0/api/test/{key}/step`. Two body formats tried
+  (`{"step":…}` and `{"action":…}`) for Server/Cloud compatibility. Preconditions +
+  expected outcome go in the Jira description; raw steps table is no longer dumped there.
+- **Inline card edit:** Each TC/BDD/Charter card has an **Edit** button. Clicking it
+  replaces the card body with a resizable textarea. **Save** re-parses and re-renders
+  the card (title extracted from heading); **Cancel** restores the original. Edited
+  content is what gets pushed to Jira on next Push click.
+- **Download format selection:** Segmented **Text / CSV / JSON** control replaces the
+  single Download button. CSV includes a "Test Set" column (populated from the
+  auto-created Test Set key or from a manual input field). JSON outputs a rich object
+  array. BDD/Charters fall back to ID/Title/Content columns in CSV.
+- **Test Set key input in CSV panel:** Manual "Test Set key" field shown alongside the
+  download controls so users can fill in the Xray Test Set key if they skipped Push All.
 
 ### Fixed
-- `jira_client.py`: missing `async def create_xray_test(` declaration after
-  `add_tests_to_set` caused a `SyntaxError` at import time (regression from previous edit).
+- `jira_client.py`: missing `async def create_xray_test(` declaration caused a
+  `SyntaxError` at import time (regression from previous session).
+- Generate nav link: both desktop and mobile nav now point to `/projects` (was `/`).
+- Root `/` redirect: logged-in users are now redirected to `/dashboard` (was serving
+  the old `index.html` landing page). Smoke test updated accordingly.
+- `add_tests_to_set`: fixed status code check (`is_success` instead of specific codes)
+  and expanded fallback link-type list ("Tests", "is member of", "Relates").
+
+### Known issues / deferred
+- **VRD-D015:** Xray step API compatibility with Xray Cloud not yet confirmed — steps
+  may still appear in description on some instances. Xray Cloud v2 API (separate API
+  key) not yet implemented.
+- **VRD-D016:** Tests tab in Xray Test Set remains empty on Xray Cloud — the standard
+  `issueLink` fallback creates links but does not populate the Xray Tests tab (Xray
+  Cloud uses an internal data model, not Jira links).
 
 ---
 

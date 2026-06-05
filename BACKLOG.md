@@ -25,7 +25,8 @@
 | **S4** | Licensing | On-prem licence key; seat limits; editions | ⬜ Not started |
 | **S5** | Knowledge Management | Upload volumes; knowledge-augmented generation | ⬜ Not started |
 | ~~S6~~ | ~~UX / UI Polish~~ | ~~Tier 3 TC cards; mobile nav; Playwright; empty states~~ | ✅ Done |
-| **S7** | Deeper Xray | Test execution push; bulk backlog generation | ⬜ Not started |
+| ~~S6-ext~~ | ~~v1.7.x — Test Set, inline edit, download formats~~ | ~~Test Set grouping; Xray step API; CSV/JSON export~~ | ✅ Done (branch `claude/confident-maxwell-nJkvm`) |
+| **S7** | Deeper Xray | Xray Cloud v2 API; step API fix; test execution push | 🔜 Next priority |
 | **S8** | Marketplace | Atlassian Connect; OAuth; listings | ⬜ Not started |
 | **S9** | Billing | Stripe/credits; invoices; top-up flow | ⬜ Not started |
 | **S10** | Modular migration | Move code into platform/product/delivery — step by step | ⬜ Not started |
@@ -270,11 +271,28 @@ marketplace screenshots and demo videos.
 
 ---
 
-## Sprint 7 — Deeper Xray & Jira
+## Sprint 7 — Deeper Xray & Jira 🔜 NEXT
 
-**Goal:** power features for QA teams who live in Xray daily.
+**Goal:** power features for QA teams who live in Xray daily. **Top priority:**
+fix VRD-D015 and VRD-D016 (Xray Cloud v2 API) so steps and Test Set membership
+actually appear in Xray.
 
 ### Stories
+
+#### S7-0 — Xray Cloud v2 API (fixes VRD-D015 + VRD-D016) ⬜ NEW — Top priority
+- User generates an Xray Cloud API key pair (Client ID + Client Secret) from their
+  Xray Cloud settings → "API Keys".
+- Store these in admin settings DB (encrypted, like Jira token).
+- Admin Settings UI: add Xray Cloud section with Client ID / Client Secret fields.
+- `jira_client.py`: add `_get_xray_token()` — POST to
+  `https://xray.cloud.getxray.app/api/v2/authenticate` → Bearer token.
+- Replace `_push_xray_steps` with Xray Cloud v2 call:
+  `PUT https://xray.cloud.getxray.app/api/v2/test/{issueId}/steps`
+  (requires Jira issue ID, not key; fetch from issue creation response).
+- Replace `add_tests_to_set` Xray path with v2 call:
+  `POST https://xray.cloud.getxray.app/api/v2/testset/{issueId}/test`
+- Fallback: if no Xray API key configured, keep current behaviour (steps in
+  description; best-effort `issueLink`).
 
 #### S7-1 — Xray test repository view
 - `/projects/{key}/tests` — list existing Xray Test issues for the project
