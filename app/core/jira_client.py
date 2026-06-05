@@ -1,5 +1,6 @@
 # Copyright © 2026 Network Logic Limited. All rights reserved.
 
+import re
 import base64
 import httpx
 from typing import Optional
@@ -246,6 +247,47 @@ class JiraClient:
                         continue
             return linked > 0
 
+    def _parse_test_content(self, content: str) -> dict:
+        """Extract structured fields from AI-generated test case markdown."""
+        result = {"preconditions": [], "steps": [], "expected_outcome": ""}
+
+        pre = re.search(r'\*\*Preconditions:\*\*\n([\s\S]*?)(?=\n\*\*|\n##|$)', content)
+        if pre:
+            result["preconditions"] = [
+                l.strip().lstrip("- ").strip()
+                for l in pre.group(1).split("\n")
+                if l.strip().startswith("-")
+            ]
+
+        steps_block = re.search(r'\*\*Test Steps:\*\*\n([\s\S]*?)(?=\n\*\*|\n##|$)', content)
+        if steps_block:
+            rows = [
+                l for l in steps_block.group(1).split("\n")
+                if "|" in l and not re.match(r'^\s*\|[\s|:-]+\|\s*$', l)
+            ]
+            for row in rows[1:]:  # skip header
+                cols = [c.strip() for c in row.split("|")[1:-1]]
+                if len(cols) >= 3 and cols[1]:
+                    result["steps"].append({"step": cols[0], "action": cols[1], "expected": cols[2]})
+
+        om = re.search(r'\*\*Expected Outcome:\*\*\s*([^\n]+(?:\n(?!\*\*|\n##)[^\n]+)*)', content)
+        if om:
+            result["expected_outcome"] = om.group(1).strip()
+
+        return result
+
+    async def _push_xray_steps(self, client: httpx.AsyncClient, issue_key: str, steps: list) -> None:
+        """Push structured test steps to Xray via REST API v1."""
+        for i, s in enumerate(steps):
+            try:
+                await client.post(
+                    f"{self.base_url}/rest/raven/1.0/api/test/{issue_key}/step",
+                    headers=self._headers,
+                    json={"step": s["action"], "data": "", "result": s["expected"]},
+                )
+            except Exception:
+                pass
+
     async def create_xray_test(
         self,
         project_key: str,
@@ -254,12 +296,20 @@ class JiraClient:
         linked_issue_key: Optional[str] = None,
         issue_type: str = "Test",
     ) -> dict:
+        parsed = self._parse_test_content(content)
+
+        # Description: just the expected outcome (steps go into Xray step fields)
+        desc_text = parsed["expected_outcome"] or ""
+        if parsed["preconditions"]:
+            pre_text = "Preconditions:\n" + "\n".join(f"- {p}" for p in parsed["preconditions"])
+            desc_text = (pre_text + "\n\n" + desc_text).strip() if desc_text else pre_text
+
         payload = {
             "fields": {
                 "summary": summary[:255],
                 "issuetype": {"name": issue_type},
                 "project": {"key": project_key},
-                "description": self._text_to_adf(content),
+                "description": self._text_to_adf(desc_text or content),
             }
         }
         async with httpx.AsyncClient(timeout=20.0) as client:
@@ -283,7 +333,11 @@ class JiraClient:
             created_key = data.get("key", "")
             actual_type = payload["fields"]["issuetype"]["name"]
 
-            # Link to source issue — best-effort (Xray "Tests" link type)
+            # Push test steps into Xray step fields (best-effort)
+            if created_key and parsed["steps"] and actual_type == "Test":
+                await self._push_xray_steps(client, created_key, parsed["steps"])
+
+            # Link to source issue
             if linked_issue_key and created_key:
                 try:
                     await client.post(
