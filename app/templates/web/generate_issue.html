@@ -770,6 +770,9 @@ async function pushAllCards() {
         testSetKey = data.key;
         testSetId  = data.id || '';   // numeric ID for Xray Cloud v2
         createdTestSetKey = data.key;
+        // Auto-fill the CSV Test Set key field so the downloaded CSV is ready
+        const csvKeyEl = document.getElementById('csv-test-set-key');
+        if (csvKeyEl && !csvKeyEl.value) csvKeyEl.value = data.key;
         if (data.url && data.url.includes('/browse/')) jiraBaseUrl = data.url.split('/browse/')[0];
         msgEl.textContent = `Test Set ${testSetKey} created — pushing tests…`;
       } else {
