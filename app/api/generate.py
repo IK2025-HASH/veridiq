@@ -23,8 +23,14 @@ router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)
 
 
+def _is_authenticated(request: Request) -> bool:
+    """Exempt authenticated users from the IP-based rate limit; credits cap their usage."""
+    from app.api.users import get_current_user
+    return bool(get_current_user(request))
+
+
 @router.post("/generate/stream")
-@limiter.limit(f"{settings.RATE_LIMIT_PER_DAY}/day")
+@limiter.limit(f"{settings.RATE_LIMIT_PER_DAY}/day", exempt_when=_is_authenticated)
 async def generate_stream(request: Request, body: GenerateRequest):
     """
     Stream AI generation output via Server-Sent Events.
@@ -61,7 +67,7 @@ async def generate_stream(request: Request, body: GenerateRequest):
 
 
 @router.post("/generate", response_model=GenerateResponse)
-@limiter.limit(f"{settings.RATE_LIMIT_PER_DAY}/day")
+@limiter.limit(f"{settings.RATE_LIMIT_PER_DAY}/day", exempt_when=_is_authenticated)
 async def generate(request: Request, body: GenerateRequest):
     """
     Non-streaming generation endpoint.
