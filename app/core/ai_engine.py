@@ -20,7 +20,7 @@ BATCH_TYPES = {
 }
 
 GENERATION_LABELS = {
-    "TEST_CASES":           "Test Cases",
+    "TEST_CASES":           "Test Set",
     "BDD_SCENARIOS":        "BDD Scenarios",
     "NEGATIVE_TEST_CASES":  "Negative Test Cases",
     "TEST_PLAN":            "Test Plan Summary",

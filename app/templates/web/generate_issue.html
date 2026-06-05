@@ -540,6 +540,8 @@ function selectType(btn) {
   selectedType = btn.dataset.key;
   const supportsQty = btn.dataset.supportsQty === 'true';
   document.getElementById('qty-row').classList.toggle('hidden', !supportsQty);
+  const groupCb = document.getElementById('group-test-set');
+  if (groupCb) groupCb.checked = (selectedType === 'TEST_CASES');
 }
 
 function adjustQty(delta) {
