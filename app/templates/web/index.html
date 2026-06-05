@@ -541,6 +541,7 @@ Acceptance Criteria:
             summary: summary,
             content: fullOutput,
             linked_issue_key: jiraIssueKey || null,
+            generation_type: selectedType || '',
           })
         });
         const data = await r.json();
@@ -548,7 +549,10 @@ Acceptance Criteria:
           msgEl.textContent = `✗ ${data.detail || 'Push failed'}`;
           msgEl.className = 'text-xs text-center text-red-400';
         } else {
-          msgEl.innerHTML = `✓ Created <a href="${data.url}" target="_blank" class="text-teal underline font-semibold">${data.key}</a> in Xray (${data.issue_type})`;
+          const stepInfo = data.steps_pushed > 0
+            ? ` · ${data.steps_pushed} steps${data.preconditions_pushed > 0 ? ` · ${data.preconditions_pushed} preconditions` : ''} populated`
+            : '';
+          msgEl.innerHTML = `✓ Created <a href="${data.url}" target="_blank" class="text-teal underline font-semibold">${data.key}</a> in Xray (${data.issue_type})${stepInfo}`;
           msgEl.className = 'text-xs text-center text-emerald-400';
         }
       } catch(e) {

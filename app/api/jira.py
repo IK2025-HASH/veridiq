@@ -24,6 +24,7 @@ class PushXrayRequest(BaseModel):
     summary: str
     content: str
     linked_issue_key: Optional[str] = None
+    generation_type: str = ""
 
 
 def _jira_error(exc: Exception) -> HTTPException:
@@ -136,6 +137,7 @@ async def push_to_xray(request: Request, body: PushXrayRequest):
             summary=body.summary,
             content=body.content,
             linked_issue_key=body.linked_issue_key or None,
+            generation_type=body.generation_type,
         )
     except Exception as e:
         logger.error(f"Xray push error: {e}")

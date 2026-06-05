@@ -137,6 +137,74 @@ class JiraClient:
                 "project_name": fields.get("project", {}).get("name", ""),
             }
 
+    def _parse_test_content(self, content: str) -> dict:
+        """
+        Parse AI-generated markdown for TEST_CASES / NEGATIVE_TEST_CASES.
+        Returns {'preconditions': [str], 'steps': [{'action': str, 'expected': str}]}
+        """
+        import re
+        result: dict = {"preconditions": [], "steps": []}
+
+        # Extract bullet-list preconditions
+        prec_match = re.search(
+            r"\*\*Preconditions?\*\*[:\s]*\n((?:\s*[-•]\s*.+\n?)+)",
+            content, re.IGNORECASE | re.MULTILINE,
+        )
+        if prec_match:
+            for line in prec_match.group(1).splitlines():
+                item = line.strip().lstrip("-•").strip()
+                if item:
+                    result["preconditions"].append(item)
+
+        # Extract rows from markdown table  |  n  |  action  |  expected  |
+        for row in re.finditer(
+            r"^\|\s*\d+\s*\|\s*(.+?)\s*\|\s*(.+?)\s*\|",
+            content, re.MULTILINE,
+        ):
+            action, expected = row.group(1).strip(), row.group(2).strip()
+            if action and not action.startswith("---") and action.lower() != "action":
+                result["steps"].append({"action": action, "expected": expected})
+
+        return result
+
+    async def _push_xray_steps(
+        self,
+        issue_key: str,
+        preconditions: list[str],
+        steps: list[dict],
+    ) -> None:
+        """
+        Populate Xray test steps and precondition definition.
+        Best-effort — silently skips on any API error so the issue is still useful.
+        """
+        if not steps and not preconditions:
+            return
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                # Set precondition definition text on the test issue
+                if preconditions:
+                    defn = "\n".join(f"- {p}" for p in preconditions)
+                    await client.put(
+                        f"{self.base_url}/rest/raven/1.0/api/test/{issue_key}",
+                        headers=self._headers,
+                        json={"definition": defn},
+                    )
+
+                # Add each step in order
+                for idx, step in enumerate(steps, 1):
+                    await client.post(
+                        f"{self.base_url}/rest/raven/1.0/api/test/{issue_key}/step",
+                        headers=self._headers,
+                        json={
+                            "index": idx,
+                            "step": step["action"],
+                            "data": "",
+                            "result": step["expected"],
+                        },
+                    )
+        except Exception:
+            pass  # best-effort — don't fail the whole push
+
     def _text_to_adf(self, text: str) -> dict:
         paragraphs = []
         for block in text.split("\n\n"):
@@ -160,7 +228,14 @@ class JiraClient:
         content: str,
         linked_issue_key: Optional[str] = None,
         issue_type: str = "Test",
+        generation_type: str = "",
     ) -> dict:
+        # For step-based types, parse structured content before creating the issue.
+        # The description will contain the full AI output for human reference;
+        # the Xray step fields are populated separately via the Xray REST API.
+        STEP_TYPES = {"TEST_CASES", "NEGATIVE_TEST_CASES"}
+        parsed = self._parse_test_content(content) if generation_type.upper() in STEP_TYPES else None
+
         payload = {
             "fields": {
                 "summary": summary[:255],
@@ -190,6 +265,12 @@ class JiraClient:
             created_key = data.get("key", "")
             actual_type = payload["fields"]["issuetype"]["name"]
 
+            # Populate Xray test steps and preconditions (best-effort)
+            if created_key and parsed and (parsed["steps"] or parsed["preconditions"]):
+                await self._push_xray_steps(
+                    created_key, parsed["preconditions"], parsed["steps"]
+                )
+
             # Link to source issue — best-effort (Xray "Tests" link type)
             if linked_issue_key and created_key:
                 try:
@@ -209,4 +290,6 @@ class JiraClient:
                 "key": created_key,
                 "url": f"{self.base_url}/browse/{created_key}",
                 "issue_type": actual_type,
+                "steps_pushed": len(parsed["steps"]) if parsed else 0,
+                "preconditions_pushed": len(parsed["preconditions"]) if parsed else 0,
             }
