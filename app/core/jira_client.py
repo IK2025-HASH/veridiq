@@ -384,47 +384,49 @@ class JiraClient:
         # --- Xray Cloud v2 ---
         if token and issue_id:
             xray_hdrs = self._xray_headers(token)
+            plain = [{"action": s["action"], "data": "", "result": s["expected"]} for s in steps]
 
-            # Attempt 1: PUT /steps with array (bulk replace — most common v2 pattern)
-            bulk_bodies = [
-                # plain text fields
-                [{"action": s["action"], "data": "", "result": s["expected"]} for s in steps],
-                # raw-wrapped fields
+            # Attempt 1: PUT /steps bulk replace — multiple body formats
+            for bulk_body in [
+                plain,                                   # plain array
+                {"steps": plain},                        # wrapped object
                 [{"action": {"raw": s["action"]}, "data": {"raw": ""}, "result": {"raw": s["expected"]}} for s in steps],
-            ]
-            for bulk in bulk_bodies:
+            ]:
                 try:
-                    url = f"{XRAY_CLOUD_BASE}/test/{issue_id}/steps"
-                    r = await client.put(url, headers=xray_hdrs, json=bulk)
+                    r = await client.put(
+                        f"{XRAY_CLOUD_BASE}/test/{issue_id}/steps",
+                        headers=xray_hdrs,
+                        json=bulk_body,
+                    )
                     logger.info(f"Xray v2 PUT /steps {issue_key}({issue_id}): {r.status_code} {r.text[:300]}")
                     if r.is_success:
                         return True
                 except Exception as e:
                     logger.warning(f"Xray v2 PUT /steps exception: {e}")
 
-            # Attempt 2: POST /step one at a time (singular endpoint)
+            # Attempt 2: POST /step one at a time — fixed loop (no for-else break trick)
             success = 0
             for s in steps:
-                step_bodies = [
+                for body in [
                     {"action": s["action"], "data": "", "result": s["expected"]},
                     {"step": s["action"], "data": "", "result": s["expected"]},
                     {"action": {"raw": s["action"]}, "data": {"raw": ""}, "result": {"raw": s["expected"]}},
-                ]
-                for body in step_bodies:
+                ]:
                     try:
-                        url = f"{XRAY_CLOUD_BASE}/test/{issue_id}/step"
-                        r = await client.post(url, headers=xray_hdrs, json=body)
+                        r = await client.post(
+                            f"{XRAY_CLOUD_BASE}/test/{issue_id}/step",
+                            headers=xray_hdrs,
+                            json=body,
+                        )
                         logger.info(f"Xray v2 POST /step {issue_key}({issue_id}): {r.status_code} {r.text[:300]}")
                         if r.is_success:
                             success += 1
                             break
                     except Exception as e:
                         logger.warning(f"Xray v2 POST /step exception: {e}")
-                else:
-                    continue
-                break
+
             if success > 0:
-                return success == len(steps)
+                return True
 
             logger.warning(f"All Xray v2 step attempts failed for {issue_key}({issue_id}) — falling through to v1")
 
@@ -449,6 +451,64 @@ class JiraClient:
                     logger.warning(f"Xray v1 step exception: {e}")
         return success == len(steps)
 
+    async def _push_xray_preconditions(
+        self,
+        client: httpx.AsyncClient,
+        test_issue_key: str,
+        test_issue_id: str,
+        project_key: str,
+        preconditions: list[str],
+    ) -> bool:
+        """Create Pre-Condition issues and link them to the test via Xray Cloud v2."""
+        if not preconditions:
+            return True
+
+        pre_ids: list[str] = []
+        for pre_text in preconditions:
+            if not pre_text.strip():
+                continue
+            try:
+                r = await client.post(
+                    f"{self.base_url}/rest/api/3/issue",
+                    headers=self._headers,
+                    json={
+                        "fields": {
+                            "summary": pre_text[:255],
+                            "issuetype": {"name": "Pre-Condition"},
+                            "project": {"key": project_key},
+                        }
+                    },
+                )
+                if r.is_success:
+                    pre_id = r.json().get("id", "")
+                    if pre_id:
+                        pre_ids.append(pre_id)
+                        logger.info(f"Created Pre-Condition {r.json().get('key','')} for {test_issue_key}")
+                else:
+                    logger.warning(f"Pre-Condition create failed: {r.status_code} {r.text[:200]}")
+            except Exception as e:
+                logger.warning(f"Pre-Condition create exception: {e}")
+
+        if not pre_ids:
+            return False
+
+        token = await self._get_xray_token(client)
+        if token and test_issue_id:
+            xray_hdrs = self._xray_headers(token)
+            try:
+                r = await client.post(
+                    f"{XRAY_CLOUD_BASE}/test/{test_issue_id}/precondition",
+                    headers=xray_hdrs,
+                    json={"add": pre_ids},
+                )
+                logger.info(f"Xray v2 precondition link {test_issue_key}: {r.status_code} {r.text[:200]}")
+                if r.is_success:
+                    return True
+            except Exception as e:
+                logger.warning(f"Xray v2 precondition link exception: {e}")
+
+        return bool(pre_ids)
+
     async def create_xray_test(
         self,
         project_key: str,
@@ -459,18 +519,16 @@ class JiraClient:
     ) -> dict:
         parsed = self._parse_test_content(content)
 
-        # Description: just the expected outcome (steps go into Xray step fields)
-        desc_text = parsed["expected_outcome"] or ""
-        if parsed["preconditions"]:
-            pre_text = "Preconditions:\n" + "\n".join(f"- {p}" for p in parsed["preconditions"])
-            desc_text = (pre_text + "\n\n" + desc_text).strip() if desc_text else pre_text
+        # Description: expected outcome only — steps go into Xray step fields,
+        # preconditions go into separate Pre-Condition issues via Xray v2 API.
+        desc_text = parsed["expected_outcome"] or content
 
         payload = {
             "fields": {
                 "summary": summary[:255],
                 "issuetype": {"name": issue_type},
                 "project": {"key": project_key},
-                "description": self._text_to_adf(desc_text or content),
+                "description": self._text_to_adf(desc_text),
             }
         }
         async with httpx.AsyncClient(timeout=20.0) as client:
@@ -492,12 +550,18 @@ class JiraClient:
             r.raise_for_status()
             data = r.json()
             created_key = data.get("key", "")
-            created_id = data.get("id", "")   # numeric Jira issue ID — needed for Xray Cloud v2
+            created_id = data.get("id", "")   # numeric Jira issue ID for Xray Cloud v2
             actual_type = payload["fields"]["issuetype"]["name"]
 
-            # Push test steps into Xray step fields (best-effort)
-            if created_key and parsed["steps"] and actual_type == "Test":
-                await self._push_xray_steps(client, created_key, created_id, parsed["steps"])
+            if created_key and actual_type == "Test":
+                # Push test steps into Xray step fields (best-effort)
+                if parsed["steps"]:
+                    await self._push_xray_steps(client, created_key, created_id, parsed["steps"])
+                # Push preconditions as Xray Pre-Condition issues (best-effort)
+                if parsed["preconditions"]:
+                    await self._push_xray_preconditions(
+                        client, created_key, created_id, project_key, parsed["preconditions"]
+                    )
 
             # Link to source issue
             if linked_issue_key and created_key:
