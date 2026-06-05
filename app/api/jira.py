@@ -26,6 +26,17 @@ class PushXrayRequest(BaseModel):
     linked_issue_key: Optional[str] = None
 
 
+class PushTestSetRequest(BaseModel):
+    project_key: str
+    summary: str
+    linked_issue_key: Optional[str] = None
+
+
+class LinkTestsRequest(BaseModel):
+    test_set_key: str
+    test_keys: list[str]
+
+
 def _jira_error(exc: Exception) -> HTTPException:
     msg = str(exc)
     if isinstance(exc, PermissionError) or "401" in msg or "Unauthorized" in msg:
@@ -139,6 +150,37 @@ async def get_jira_issue(request: Request, issue_key: str):
         raise HTTPException(401, str(e))
     except Exception as e:
         logger.error(f"Jira fetch error: {e}")
+        raise _jira_error(e)
+
+
+@router.post("/jira/push-test-set")
+async def push_test_set(request: Request, body: PushTestSetRequest):
+    user = require_user(request)
+    if not user.get("jira_url"):
+        raise HTTPException(400, "Jira not connected — set up in Profile → Jira Connection")
+    client = JiraClient(user["jira_url"], user["jira_email"], user["jira_api_token"])
+    try:
+        return await client.create_test_set(
+            project_key=body.project_key.upper(),
+            summary=body.summary,
+            linked_issue_key=body.linked_issue_key or None,
+        )
+    except Exception as e:
+        logger.error(f"Test Set push error: {e}")
+        raise _jira_error(e)
+
+
+@router.post("/jira/link-tests-to-set")
+async def link_tests_to_set(request: Request, body: LinkTestsRequest):
+    user = require_user(request)
+    if not user.get("jira_url"):
+        raise HTTPException(400, "Jira not connected — set up in Profile → Jira Connection")
+    client = JiraClient(user["jira_url"], user["jira_email"], user["jira_api_token"])
+    try:
+        await client.add_tests_to_set(body.test_set_key, body.test_keys)
+        return {"ok": True}
+    except Exception as e:
+        logger.error(f"Link tests to set error: {e}")
         raise _jira_error(e)
 
 

@@ -8,6 +8,32 @@ of them: `git fetch origin <branch> && git reset --hard origin/<branch>`.
 
 ---
 
+## [1.7.0] — 2026-06-05 · Test Set, Inline Edit, Download Formats
+
+### Added
+- **Test Set push:** "Group into Test Set" checkbox on the batch push panel. When checked,
+  `pushAllCards()` creates a Xray Test Set issue first (via new `/api/jira/push-test-set`
+  endpoint), pushes all test cases, then links them to the set via
+  `/api/jira/link-tests-to-set`. Board link includes a direct link to the Test Set issue.
+  Falls back to Task + `Test-Set` label on Jira instances without the Xray issue type;
+  uses Xray Server `raven` API for linking, with standard `issueLink` fallback.
+- **Inline card edit:** Each TC/BDD/Charter card now has an **Edit** button. Clicking it
+  replaces the card body with a resizable textarea pre-filled with the raw AI content.
+  **Save** re-parses and re-renders the card with the new content (title extracted from
+  heading); **Cancel** restores the original render. Edited content is pushed to Jira
+  on the next Push click.
+- **Download format selection:** The single Download button is replaced by a segmented
+  **Text / CSV / JSON** control. Text = plain `.txt` (unchanged). CSV = structured
+  spreadsheet with ID, Title, Priority, Test Type, Preconditions, Steps, Expected Outcome
+  columns (structured types) or ID/Title/Content (BDD/Charters). JSON = rich object array
+  with all parsed fields, or single-doc envelope for non-batch types.
+
+### Fixed
+- `jira_client.py`: missing `async def create_xray_test(` declaration after
+  `add_tests_to_set` caused a `SyntaxError` at import time (regression from previous edit).
+
+---
+
 ## [1.6.0] — 2026-06-05 · Sprint 6 UX Polish
 **Branch:** `claude/confident-maxwell-nJkvm` · **Commit:** `bb76cd6`
 *(freeze branch `snapshot/v1.6.0-ux-polish` to be created at next milestone)*

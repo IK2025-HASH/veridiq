@@ -153,6 +153,97 @@ class JiraClient:
             paragraphs = [{"type": "paragraph", "content": [{"type": "text", "text": text}]}]
         return {"type": "doc", "version": 1, "content": paragraphs}
 
+    async def create_test_set(
+        self,
+        project_key: str,
+        summary: str,
+        linked_issue_key: Optional[str] = None,
+    ) -> dict:
+        """Create a Test Set issue and link it to the source story (requirement)."""
+        payload = {
+            "fields": {
+                "summary": summary[:255],
+                "issuetype": {"name": "Test Set"},
+                "project": {"key": project_key},
+            }
+        }
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            r = await client.post(
+                f"{self.base_url}/rest/api/3/issue",
+                headers=self._headers,
+                json=payload,
+            )
+            # Fallback: if "Test Set" issue type not available, use Task with label
+            if r.status_code == 400:
+                err = r.text.lower()
+                if "issuetype" in err or "issue type" in err:
+                    payload["fields"]["issuetype"] = {"name": "Task"}
+                    payload["fields"]["labels"] = ["Test-Set"]
+                    r = await client.post(
+                        f"{self.base_url}/rest/api/3/issue",
+                        headers=self._headers,
+                        json=payload,
+                    )
+            r.raise_for_status()
+            data = r.json()
+            created_key = data.get("key", "")
+
+            if linked_issue_key and created_key:
+                try:
+                    await client.post(
+                        f"{self.base_url}/rest/api/3/issueLink",
+                        headers=self._headers,
+                        json={
+                            "type": {"name": "Tests"},
+                            "inwardIssue": {"key": created_key},
+                            "outwardIssue": {"key": linked_issue_key},
+                        },
+                    )
+                except Exception:
+                    pass
+
+            return {
+                "key": created_key,
+                "url": f"{self.base_url}/browse/{created_key}",
+            }
+
+    async def add_tests_to_set(self, test_set_key: str, test_keys: list[str]) -> None:
+        """Associate Test issues with a Test Set.
+
+        Tries Xray Server REST API first; falls back to standard Jira issue links.
+        """
+        if not test_keys:
+            return
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            # Xray Server / Data Center REST API
+            try:
+                r = await client.post(
+                    f"{self.base_url}/rest/raven/1.0/api/testset/{test_set_key}/test",
+                    headers=self._headers,
+                    json={"add": test_keys},
+                )
+                if r.status_code in (200, 201, 204):
+                    return
+            except Exception:
+                pass
+
+            # Fallback: standard Jira issue links
+            for link_type in ("is member of", "Relates"):
+                try:
+                    for test_key in test_keys:
+                        await client.post(
+                            f"{self.base_url}/rest/api/3/issueLink",
+                            headers=self._headers,
+                            json={
+                                "type": {"name": link_type},
+                                "inwardIssue": {"key": test_key},
+                                "outwardIssue": {"key": test_set_key},
+                            },
+                        )
+                    return
+                except Exception:
+                    continue
+
     async def create_xray_test(
         self,
         project_key: str,
