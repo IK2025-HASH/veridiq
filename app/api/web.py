@@ -27,6 +27,10 @@ async def landing(request: Request):
 
 @router.get("/", response_class=HTMLResponse)
 async def index(request: Request):
+    from fastapi.responses import RedirectResponse
+    user = get_current_user(request)
+    if user:
+        return RedirectResponse("/dashboard", status_code=302)
     generation_types = [
         {
             "key": key,

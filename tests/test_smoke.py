@@ -14,7 +14,6 @@ import pytest
 
 # ── Pages that MUST render 200 for a logged-in admin (the core journey) ──────────
 CORE_PAGES_200 = [
-    "/",                              # generator landing
     "/landing",
     "/terms",
     "/privacy",
@@ -51,6 +50,7 @@ SOFT_GET_ROUTES = [
     "/auth/forgot-password",
     "/auth/verify-email-sent",
     "/setup",                         # redirects (302) once setup is complete
+    "/",                              # redirects (302) to /dashboard when logged in
 ]
 
 
