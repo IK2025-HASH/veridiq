@@ -9,15 +9,55 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 
+XRAY_CLOUD_BASE = "https://xray.cloud.getxray.app/api/v2"
+
+
 class JiraClient:
-    def __init__(self, base_url: str, email: str, api_token: str):
+    def __init__(
+        self,
+        base_url: str,
+        email: str,
+        api_token: str,
+        xray_client_id: str = "",
+        xray_client_secret: str = "",
+    ):
         self.base_url = base_url.rstrip("/")
+        self.xray_client_id = xray_client_id
+        self.xray_client_secret = xray_client_secret
+        self._xray_token: Optional[str] = None
         encoded = base64.b64encode(f"{email}:{api_token}".encode()).decode()
         self._headers = {
             "Authorization": f"Basic {encoded}",
             "Accept": "application/json",
             "Content-Type": "application/json",
         }
+
+    async def _get_xray_token(self, client: httpx.AsyncClient) -> Optional[str]:
+        """Exchange Xray Cloud Client ID/Secret for a Bearer token (cached per instance)."""
+        if self._xray_token:
+            return self._xray_token
+        if not self.xray_client_id or not self.xray_client_secret:
+            return None
+        try:
+            r = await client.post(
+                f"{XRAY_CLOUD_BASE}/authenticate",
+                json={"client_id": self.xray_client_id, "client_secret": self.xray_client_secret},
+                headers={"Content-Type": "application/json"},
+                timeout=15.0,
+            )
+            if r.is_success:
+                token = r.json()  # response is a quoted JWT string
+                if isinstance(token, str) and token:
+                    self._xray_token = token
+                    logger.info("Xray Cloud v2 token obtained successfully")
+                    return self._xray_token
+            logger.warning(f"Xray auth failed: {r.status_code} {r.text[:200]}")
+        except Exception as e:
+            logger.warning(f"Xray auth exception: {e}")
+        return None
+
+    def _xray_headers(self, token: str) -> dict:
+        return {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
 
     async def test_connection(self) -> dict:
         async with httpx.AsyncClient(timeout=10.0) as client:
@@ -191,6 +231,7 @@ class JiraClient:
             r.raise_for_status()
             data = r.json()
             created_key = data.get("key", "")
+            created_id = data.get("id", "")
 
             if linked_issue_key and created_key:
                 try:
@@ -208,28 +249,60 @@ class JiraClient:
 
             return {
                 "key": created_key,
+                "id": created_id,
                 "url": f"{self.base_url}/browse/{created_key}",
             }
 
-    async def add_tests_to_set(self, test_set_key: str, test_keys: list[str]) -> bool:
-        """Associate Test issues with a Test Set. Returns True if Xray API succeeded."""
+    async def add_tests_to_set(
+        self,
+        test_set_key: str,
+        test_keys: list[str],
+        test_set_id: str = "",
+        test_ids: Optional[list[str]] = None,
+    ) -> bool:
+        """Associate Test issues with a Test Set.
+
+        Tries Xray Cloud v2 API first (requires numeric issue IDs + Xray token),
+        then Xray Server v1, then standard Jira issue links as last resort.
+        """
         if not test_keys:
             return True
         async with httpx.AsyncClient(timeout=20.0) as client:
-            # Xray REST API v1 — works on Server, DC, and most Cloud instances
+
+            # --- Xray Cloud v2 (requires numeric IDs and Xray API token) ---
+            token = await self._get_xray_token(client)
+            if token and test_set_id and test_ids:
+                xray_hdrs = self._xray_headers(token)
+                for endpoint in [
+                    f"{XRAY_CLOUD_BASE}/testset/{test_set_id}/test",
+                    f"{XRAY_CLOUD_BASE}/testset/{test_set_id}/tests",
+                ]:
+                    try:
+                        r = await client.post(
+                            endpoint,
+                            headers=xray_hdrs,
+                            json={"add": test_ids},
+                        )
+                        logger.info(f"Xray v2 testset link {test_set_key}: {r.status_code} {r.text[:200]}")
+                        if r.is_success:
+                            return True
+                    except Exception as e:
+                        logger.warning(f"Xray v2 testset exception: {e}")
+
+            # --- Xray Server/DC v1 ---
             try:
                 r = await client.post(
                     f"{self.base_url}/rest/raven/1.0/api/testset/{test_set_key}/test",
                     headers=self._headers,
                     json={"add": test_keys},
                 )
+                logger.info(f"Xray v1 testset link: {r.status_code} {r.text[:120]}")
                 if r.is_success:
                     return True
             except Exception:
                 pass
 
-            # Fallback: Jira issue links using the Xray "Tests" link type
-            # (test case inward → test set outward)
+            # --- Last resort: standard Jira issue links ---
             linked = 0
             for test_key in test_keys:
                 for link_type in ("Tests", "is member of", "Relates"):
@@ -279,8 +352,43 @@ class JiraClient:
 
         return result
 
-    async def _push_xray_steps(self, client: httpx.AsyncClient, issue_key: str, steps: list) -> bool:
-        """Push structured test steps to Xray via REST API v1. Returns True on success."""
+    async def _push_xray_steps(
+        self,
+        client: httpx.AsyncClient,
+        issue_key: str,
+        issue_id: str,
+        steps: list,
+    ) -> bool:
+        """Push test steps to Xray. Tries Cloud v2 API first, falls back to Server v1."""
+        if not steps:
+            return True
+
+        token = await self._get_xray_token(client)
+
+        # --- Xray Cloud v2 ---
+        if token:
+            xray_hdrs = self._xray_headers(token)
+            success = 0
+            for s in steps:
+                # v2 accepts plain text in "action"/"data"/"result" fields
+                for body in [
+                    {"action": s["action"], "data": "", "result": s["expected"]},
+                    {"step": s["action"], "data": "", "result": s["expected"]},
+                ]:
+                    try:
+                        url = f"{XRAY_CLOUD_BASE}/test/{issue_id}/step"
+                        r = await client.post(url, headers=xray_hdrs, json=body)
+                        logger.info(f"Xray v2 step {issue_key}({issue_id}): {r.status_code} {r.text[:200]}")
+                        if r.is_success:
+                            success += 1
+                            break
+                    except Exception as e:
+                        logger.warning(f"Xray v2 step exception: {e}")
+            if success == len(steps):
+                return True
+            logger.warning(f"Xray v2 steps: only {success}/{len(steps)} pushed — falling through to v1")
+
+        # --- Xray Server/DC v1 fallback ---
         success = 0
         for s in steps:
             for body in [
@@ -293,12 +401,12 @@ class JiraClient:
                         headers=self._headers,
                         json=body,
                     )
-                    logger.debug(f"Xray step API {issue_key}: {r.status_code} {r.text[:120]}")
+                    logger.info(f"Xray v1 step {issue_key}: {r.status_code} {r.text[:120]}")
                     if r.is_success:
                         success += 1
                         break
                 except Exception as e:
-                    logger.debug(f"Xray step API exception: {e}")
+                    logger.warning(f"Xray v1 step exception: {e}")
         return success == len(steps)
 
     async def create_xray_test(
@@ -344,11 +452,12 @@ class JiraClient:
             r.raise_for_status()
             data = r.json()
             created_key = data.get("key", "")
+            created_id = data.get("id", "")   # numeric Jira issue ID — needed for Xray Cloud v2
             actual_type = payload["fields"]["issuetype"]["name"]
 
             # Push test steps into Xray step fields (best-effort)
             if created_key and parsed["steps"] and actual_type == "Test":
-                await self._push_xray_steps(client, created_key, parsed["steps"])
+                await self._push_xray_steps(client, created_key, created_id, parsed["steps"])
 
             # Link to source issue
             if linked_issue_key and created_key:
@@ -367,6 +476,7 @@ class JiraClient:
 
             return {
                 "key": created_key,
+                "id": created_id,
                 "url": f"{self.base_url}/browse/{created_key}",
                 "issue_type": actual_type,
             }

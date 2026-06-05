@@ -35,6 +35,17 @@ class PushTestSetRequest(BaseModel):
 class LinkTestsRequest(BaseModel):
     test_set_key: str
     test_keys: list[str]
+    test_set_id: str = ""         # numeric Jira issue ID for Xray Cloud v2
+    test_ids: list[str] = []      # numeric Jira issue IDs for each test
+
+
+async def _xray_creds() -> tuple[str, str]:
+    """Return (xray_client_id, xray_client_secret) from settings."""
+    from app.core import settings_service
+    return (
+        await settings_service.get("xray_client_id") or "",
+        await settings_service.get("xray_client_secret") or "",
+    )
 
 
 def _jira_error(exc: Exception) -> HTTPException:
@@ -158,7 +169,9 @@ async def push_test_set(request: Request, body: PushTestSetRequest):
     user = require_user(request)
     if not user.get("jira_url"):
         raise HTTPException(400, "Jira not connected — set up in Profile → Jira Connection")
-    client = JiraClient(user["jira_url"], user["jira_email"], user["jira_api_token"])
+    xray_id, xray_secret = await _xray_creds()
+    client = JiraClient(user["jira_url"], user["jira_email"], user["jira_api_token"],
+                        xray_client_id=xray_id, xray_client_secret=xray_secret)
     try:
         return await client.create_test_set(
             project_key=body.project_key.upper(),
@@ -175,9 +188,16 @@ async def link_tests_to_set(request: Request, body: LinkTestsRequest):
     user = require_user(request)
     if not user.get("jira_url"):
         raise HTTPException(400, "Jira not connected — set up in Profile → Jira Connection")
-    client = JiraClient(user["jira_url"], user["jira_email"], user["jira_api_token"])
+    xray_id, xray_secret = await _xray_creds()
+    client = JiraClient(user["jira_url"], user["jira_email"], user["jira_api_token"],
+                        xray_client_id=xray_id, xray_client_secret=xray_secret)
     try:
-        await client.add_tests_to_set(body.test_set_key, body.test_keys)
+        await client.add_tests_to_set(
+            body.test_set_key,
+            body.test_keys,
+            test_set_id=body.test_set_id,
+            test_ids=body.test_ids or None,
+        )
         return {"ok": True}
     except Exception as e:
         logger.error(f"Link tests to set error: {e}")
@@ -189,7 +209,9 @@ async def push_to_xray(request: Request, body: PushXrayRequest):
     user = require_user(request)
     if not user.get("jira_url"):
         raise HTTPException(400, "Jira not connected — set up in Profile → Jira Connection")
-    client = JiraClient(user["jira_url"], user["jira_email"], user["jira_api_token"])
+    xray_id, xray_secret = await _xray_creds()
+    client = JiraClient(user["jira_url"], user["jira_email"], user["jira_api_token"],
+                        xray_client_id=xray_id, xray_client_secret=xray_secret)
     try:
         return await client.create_xray_test(
             project_key=body.project_key.upper(),

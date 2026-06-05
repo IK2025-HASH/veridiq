@@ -54,6 +54,8 @@ async def settings_page(request: Request):
         return RedirectResponse("/login", status_code=302)
 
     api_key = await settings_service.get("anthropic_api_key") or ""
+    xray_secret = await settings_service.get("xray_client_secret") or ""
+    xray_client_id = await settings_service.get("xray_client_id") or ""
     current = {
         "anthropic_api_key_masked": (api_key[:12] + "..." + api_key[-4:]) if api_key else "",
         "anthropic_model": await settings_service.get("anthropic_model") or "claude-sonnet-4-20250514",
@@ -62,6 +64,8 @@ async def settings_page(request: Request):
         "smtp_user": await settings_service.get("smtp_user") or "",
         "linkedin_client_id": await settings_service.get("linkedin_client_id") or "",
         "rate_limit_per_day": await settings_service.get("rate_limit_per_day") or "5",
+        "xray_client_id": xray_client_id,
+        "xray_client_secret_masked": (xray_secret[:6] + "..." + xray_secret[-4:]) if xray_secret else "",
     }
     return templates.TemplateResponse(request=request, name="web/admin_settings.html", context={
         "user": user,
@@ -82,6 +86,8 @@ async def settings_save(
     linkedin_client_id: str = Form(default=""),
     linkedin_client_secret: str = Form(default=""),
     rate_limit_per_day: str = Form(default="5"),
+    xray_client_id: str = Form(default=""),
+    xray_client_secret: str = Form(default=""),
 ):
     user = await _require_admin(request)
     if not user:
@@ -101,6 +107,10 @@ async def settings_save(
         updates["smtp_password"] = smtp_password
     if linkedin_client_secret:
         updates["linkedin_client_secret"] = linkedin_client_secret
+    if xray_client_id.strip():
+        updates["xray_client_id"] = xray_client_id.strip()
+    if xray_client_secret.strip():
+        updates["xray_client_secret"] = xray_client_secret.strip()
 
     await settings_service.set_many(updates)
     return RedirectResponse("/admin/settings?saved=1", status_code=302)

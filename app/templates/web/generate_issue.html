@@ -203,6 +203,7 @@ let issueData     = null;
 let parsedItems   = [];
 let jiraBaseUrl   = '';   // captured from the first created issue's URL
 let createdTestSetKey = '';  // set when a Test Set is created via Push All
+let testSetId = '';          // numeric Jira issue ID of the Test Set (Xray Cloud v2)
 
 // Regex patterns to split batch output into individual items
 const ITEM_PATTERNS = {
@@ -716,6 +717,7 @@ async function pushCard(idx, projectKeyOverride) {
       const data = await r.json();
       item.pushed = true;
       item.jiraKey = data.key;
+      item.jiraId  = data.id || '';   // numeric ID for Xray Cloud v2
       if (data.url && data.url.includes('/browse/')) jiraBaseUrl = data.url.split('/browse/')[0];
       btn.textContent = '✓';
       btn.className   = btn.className.replace('bg-purple/60 hover:bg-purple/80', 'bg-emerald-700/40 cursor-default');
@@ -766,6 +768,7 @@ async function pushAllCards() {
       if (r.ok) {
         const data = await r.json();
         testSetKey = data.key;
+        testSetId  = data.id || '';   // numeric ID for Xray Cloud v2
         createdTestSetKey = data.key;
         if (data.url && data.url.includes('/browse/')) jiraBaseUrl = data.url.split('/browse/')[0];
         msgEl.textContent = `Test Set ${testSetKey} created — pushing tests…`;
@@ -795,10 +798,16 @@ async function pushAllCards() {
       try {
         msgEl.textContent = `Linking ${pushedKeys.length} test(s) to ${testSetKey}…`;
         msgEl.className   = 'text-xs text-slate-400';
+        const pushedIds = parsedItems.filter(item => item.pushed && item.jiraId).map(item => item.jiraId);
         await fetch('/api/jira/link-tests-to-set', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({ test_set_key: testSetKey, test_keys: pushedKeys }),
+          body: JSON.stringify({
+            test_set_key: testSetKey,
+            test_keys: pushedKeys,
+            test_set_id: testSetId,
+            test_ids: pushedIds,
+          }),
         });
       } catch(e) { /* best-effort */ }
     }

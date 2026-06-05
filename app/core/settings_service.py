@@ -12,7 +12,7 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-ENCRYPTED_KEYS = {"anthropic_api_key", "smtp_password", "linkedin_client_secret"}
+ENCRYPTED_KEYS = {"anthropic_api_key", "smtp_password", "linkedin_client_secret", "xray_client_secret"}
 # Key prefixes that are also encrypted (e.g. jira_api_token__{user_id})
 _ENCRYPTED_PREFIXES = ("jira_api_token__",)
 
