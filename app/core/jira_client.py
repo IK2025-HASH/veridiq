@@ -207,31 +207,30 @@ class JiraClient:
                 "url": f"{self.base_url}/browse/{created_key}",
             }
 
-    async def add_tests_to_set(self, test_set_key: str, test_keys: list[str]) -> None:
-        """Associate Test issues with a Test Set.
-
-        Tries Xray Server REST API first; falls back to standard Jira issue links.
-        """
+    async def add_tests_to_set(self, test_set_key: str, test_keys: list[str]) -> bool:
+        """Associate Test issues with a Test Set. Returns True if Xray API succeeded."""
         if not test_keys:
-            return
+            return True
         async with httpx.AsyncClient(timeout=20.0) as client:
-            # Xray Server / Data Center REST API
+            # Xray REST API v1 — works on Server, DC, and most Cloud instances
             try:
                 r = await client.post(
                     f"{self.base_url}/rest/raven/1.0/api/testset/{test_set_key}/test",
                     headers=self._headers,
                     json={"add": test_keys},
                 )
-                if r.status_code in (200, 201, 204):
-                    return
+                if r.is_success:
+                    return True
             except Exception:
                 pass
 
-            # Fallback: standard Jira issue links
-            for link_type in ("is member of", "Relates"):
-                try:
-                    for test_key in test_keys:
-                        await client.post(
+            # Fallback: Jira issue links using the Xray "Tests" link type
+            # (test case inward → test set outward)
+            linked = 0
+            for test_key in test_keys:
+                for link_type in ("Tests", "is member of", "Relates"):
+                    try:
+                        r = await client.post(
                             f"{self.base_url}/rest/api/3/issueLink",
                             headers=self._headers,
                             json={
@@ -240,9 +239,12 @@ class JiraClient:
                                 "outwardIssue": {"key": test_set_key},
                             },
                         )
-                    return
-                except Exception:
-                    continue
+                        if r.is_success:
+                            linked += 1
+                            break
+                    except Exception:
+                        continue
+            return linked > 0
 
     async def create_xray_test(
         self,

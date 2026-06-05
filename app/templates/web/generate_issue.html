@@ -199,6 +199,7 @@ let fullOutput    = '';
 let issueData     = null;
 let parsedItems   = [];
 let jiraBaseUrl   = '';   // captured from the first created issue's URL
+let createdTestSetKey = '';  // set when a Test Set is created via Push All
 
 // Regex patterns to split batch output into individual items
 const ITEM_PATTERNS = {
@@ -758,6 +759,7 @@ async function pushAllCards() {
       if (r.ok) {
         const data = await r.json();
         testSetKey = data.key;
+        createdTestSetKey = data.key;
         if (data.url && data.url.includes('/browse/')) jiraBaseUrl = data.url.split('/browse/')[0];
         msgEl.textContent = `Test Set ${testSetKey} created — pushing tests…`;
       } else {
@@ -901,11 +903,12 @@ function downloadOutput(fmt) {
   if (fmt === 'csv') {
     let csv;
     if (parsedItems.length > 0 && ['TEST_CASES', 'NEGATIVE_TEST_CASES'].includes(selectedType)) {
-      const rows = [['ID', 'Title', 'Priority', 'Test Type', 'Preconditions', 'Steps', 'Expected Outcome']];
+      const rows = [['Test Set', 'ID', 'Title', 'Priority', 'Test Type', 'Preconditions', 'Steps', 'Expected Outcome']];
       parsedItems.forEach(item => {
         const d = parseCardDetails(item.content);
         const prefix = ITEM_PREFIX[selectedType] || 'TC';
         rows.push([
+          createdTestSetKey,
           `${prefix}-${item.num}`,
           item.title,
           d.priority,
@@ -917,10 +920,10 @@ function downloadOutput(fmt) {
       });
       csv = rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
     } else if (parsedItems.length > 0) {
-      const rows = [['ID', 'Title', 'Content']];
+      const rows = [['Test Set', 'ID', 'Title', 'Content']];
       parsedItems.forEach(item => {
         const prefix = ITEM_PREFIX[selectedType] || 'TC';
-        rows.push([`${prefix}-${item.num}`, item.title, item.content]);
+        rows.push([createdTestSetKey, `${prefix}-${item.num}`, item.title, item.content]);
       });
       csv = rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
     } else {
