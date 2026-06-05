@@ -97,12 +97,14 @@ class JiraClient:
         return projects
 
     async def search_issues(self, project_key: str, max_results: int = 50) -> list[dict]:
-        """Return recent issues for a project (newest first).
+        """Return Story issues for a project (newest first).
 
-        Uses the new /rest/api/3/search/jql endpoint — the old
-        /rest/api/3/search was deprecated by Atlassian and now returns 410 Gone.
+        Filters to issuetype = Story so Test, Test Set, and other Xray
+        issue types created by Verid-iq don't clutter the backlog view.
+        Uses /rest/api/3/search/jql — the old /rest/api/3/search was
+        deprecated by Atlassian and now returns 410 Gone.
         """
-        jql = f'project = "{project_key}" ORDER BY updated DESC'
+        jql = f'project = "{project_key}" AND issuetype = Story ORDER BY updated DESC'
         async with httpx.AsyncClient(timeout=15.0) as client:
             r = await client.get(
                 f"{self.base_url}/rest/api/3/search/jql",
@@ -352,6 +354,20 @@ class JiraClient:
 
         return result
 
+    async def test_xray_connection(self) -> dict:
+        """Verify Xray Cloud v2 credentials and return diagnostic info."""
+        if not self.xray_client_id or not self.xray_client_secret:
+            return {"ok": False, "error": "No Xray credentials configured in Admin Settings"}
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            token = await self._get_xray_token(client)
+            if not token:
+                return {"ok": False, "error": "Authentication failed — check Client ID and Secret in Admin Settings"}
+            return {
+                "ok": True,
+                "message": "Xray Cloud v2 authenticated successfully",
+                "token_preview": token[:20] + "...",
+            }
+
     async def _push_xray_steps(
         self,
         client: httpx.AsyncClient,
@@ -359,34 +375,58 @@ class JiraClient:
         issue_id: str,
         steps: list,
     ) -> bool:
-        """Push test steps to Xray. Tries Cloud v2 API first, falls back to Server v1."""
+        """Push test steps to Xray. Tries all known Cloud v2 formats, then v1 fallback."""
         if not steps:
             return True
 
         token = await self._get_xray_token(client)
 
         # --- Xray Cloud v2 ---
-        if token:
+        if token and issue_id:
             xray_hdrs = self._xray_headers(token)
+
+            # Attempt 1: PUT /steps with array (bulk replace — most common v2 pattern)
+            bulk_bodies = [
+                # plain text fields
+                [{"action": s["action"], "data": "", "result": s["expected"]} for s in steps],
+                # raw-wrapped fields
+                [{"action": {"raw": s["action"]}, "data": {"raw": ""}, "result": {"raw": s["expected"]}} for s in steps],
+            ]
+            for bulk in bulk_bodies:
+                try:
+                    url = f"{XRAY_CLOUD_BASE}/test/{issue_id}/steps"
+                    r = await client.put(url, headers=xray_hdrs, json=bulk)
+                    logger.info(f"Xray v2 PUT /steps {issue_key}({issue_id}): {r.status_code} {r.text[:300]}")
+                    if r.is_success:
+                        return True
+                except Exception as e:
+                    logger.warning(f"Xray v2 PUT /steps exception: {e}")
+
+            # Attempt 2: POST /step one at a time (singular endpoint)
             success = 0
             for s in steps:
-                # v2 accepts plain text in "action"/"data"/"result" fields
-                for body in [
+                step_bodies = [
                     {"action": s["action"], "data": "", "result": s["expected"]},
                     {"step": s["action"], "data": "", "result": s["expected"]},
-                ]:
+                    {"action": {"raw": s["action"]}, "data": {"raw": ""}, "result": {"raw": s["expected"]}},
+                ]
+                for body in step_bodies:
                     try:
                         url = f"{XRAY_CLOUD_BASE}/test/{issue_id}/step"
                         r = await client.post(url, headers=xray_hdrs, json=body)
-                        logger.info(f"Xray v2 step {issue_key}({issue_id}): {r.status_code} {r.text[:200]}")
+                        logger.info(f"Xray v2 POST /step {issue_key}({issue_id}): {r.status_code} {r.text[:300]}")
                         if r.is_success:
                             success += 1
                             break
                     except Exception as e:
-                        logger.warning(f"Xray v2 step exception: {e}")
-            if success == len(steps):
-                return True
-            logger.warning(f"Xray v2 steps: only {success}/{len(steps)} pushed — falling through to v1")
+                        logger.warning(f"Xray v2 POST /step exception: {e}")
+                else:
+                    continue
+                break
+            if success > 0:
+                return success == len(steps)
+
+            logger.warning(f"All Xray v2 step attempts failed for {issue_key}({issue_id}) — falling through to v1")
 
         # --- Xray Server/DC v1 fallback ---
         success = 0
@@ -401,7 +441,7 @@ class JiraClient:
                         headers=self._headers,
                         json=body,
                     )
-                    logger.info(f"Xray v1 step {issue_key}: {r.status_code} {r.text[:120]}")
+                    logger.info(f"Xray v1 step {issue_key}: {r.status_code} {r.text[:200]}")
                     if r.is_success:
                         success += 1
                         break

@@ -164,6 +164,21 @@ async def get_jira_issue(request: Request, issue_key: str):
         raise _jira_error(e)
 
 
+@router.get("/jira/xray-status")
+async def xray_status(request: Request):
+    """Diagnostic: verify Xray Cloud v2 credentials work."""
+    user = require_user(request)
+    if not user.get("jira_url"):
+        return {"configured": False, "message": "Jira not connected"}
+    xray_id, xray_secret = await _xray_creds()
+    if not xray_id or not xray_secret:
+        return {"configured": False, "message": "No Xray API credentials — add them in Admin → Settings → Xray Cloud API"}
+    client = JiraClient(user["jira_url"], user["jira_email"], user["jira_api_token"],
+                        xray_client_id=xray_id, xray_client_secret=xray_secret)
+    result = await client.test_xray_connection()
+    return {"configured": True, **result}
+
+
 @router.post("/jira/push-test-set")
 async def push_test_set(request: Request, body: PushTestSetRequest):
     user = require_user(request)
