@@ -19,9 +19,9 @@ feature broken, no workaround) · `S3 Medium` (feature broken, workaround exists
 ## Summary
 | ID | Summary | Sev | Pri | Module | Status | Fixed in |
 |----|---------|-----|-----|--------|--------|----------|
-| VRD-D011 | "Push to Xray" fails ("Xray does not connect") | S2 | P1 | product/xray | **Open** | — |
-| VRD-D012 | Non-admin users not persisted across restart | S3 | P3 | platform/users | **Deferred** (M2) | — |
 | VRD-D013 | README out of date vs actual product reality | S4 | P4 | docs | **Open** | — |
+| VRD-D011 | "Push to Xray" fails ("Xray does not connect") | S2 | P1 | product/xray | **Verified** | `bd99710` (0.4.0) |
+| VRD-D012 | Non-admin users not persisted across restart | S3 | P3 | platform/users | **Verified** | Sprint 3 (`sprint/s3-users`) |
 | VRD-D008 | `/team` returns 500 — template missing | S2 | P1 | platform/users | Verified | `8d4c1bc` (0.3.0) |
 | VRD-D009 | `/invoices` returns 500 — template missing | S2 | P1 | platform/billing | Verified | `8d4c1bc` (0.3.0) |
 | VRD-D003 | 500 on setup/login — passlib×bcrypt crash | S1 | P1 | platform/auth | Verified | `44f1d91` (0.1.0) |
@@ -37,45 +37,34 @@ feature broken, no workaround) · `S3 Medium` (feature broken, workaround exists
 
 ## Open / active defects
 
-### VRD-D011 — "Push to Xray" fails ("Xray does not connect")
-- **Severity:** S2 High · **Priority:** P1 · **Status:** Open
-- **Module:** `product/integrations/xray` (currently in `app/core/jira_client.py` + `app/api/jira.py`)
-- **Found by:** Owner report (manual)
-- **Description:** Clicking *Approve & Push to Xray* on a generated artifact fails;
-  the owner reported "Xray does not connect."
-- **Steps to reproduce:** Connect Jira → generate test cases for a story → click
-  *Approve & Push to Xray*.
-- **Expected:** A Test issue is created in the project and linked to the source story
-  (one key per pushed item).
-- **Actual:** Push fails (exact error text not yet captured).
-- **Analysis / context:** The previous MVP "StoryToTest" pushed test cases to the
-  **same** Jira and they became real issues (APR-30/31/32) — see HANDOFF §3b. So the
-  Jira/Xray side works; this is a **Verid-iq implementation gap** (likely issue-type
-  name, ADF payload shape, or the single-blob-vs-per-card approach), NOT a missing
-  "Test" type or a Jira limitation.
-- **Next step:** Capture the literal red `✗ …` message; compare our `create_xray_test`
-  payload to the per-card create that worked in StoryToTest. Likely fixed together
-  with Tier 3 (per-test-case cards, each pushed individually).
-- **Blocked on:** the exact error string from the owner.
-
-### VRD-D012 — Non-admin users not persisted across restart
-- **Severity:** S3 Medium · **Priority:** P3 · **Status:** Deferred (Milestone 2)
-- **Module:** `platform/users`
-- **Found by:** Code review
-- **Description:** In Milestone 1, only the admin is persisted (settings table) and
-  restored on startup. Other registered users live in the in-memory `USERS` dict and
-  vanish on restart.
-- **Workaround:** Single-admin local use is unaffected.
-- **Resolution plan:** Make users DB-backed when `platform/users` is built (Milestone 2 /
-  user-management module). Tracked in HANDOFF §4 and `app/platform/users/README.md`.
-
 ### VRD-D013 — README out of date vs actual product
 - **Severity:** S4 Low · **Priority:** P4 · **Status:** Open
 - **Module:** docs
 - **Description:** `README.md` describes an aspirational state (Postgres-only,
-  marketplace, Atlassian Connect) that doesn't match the Milestone-1 reality. A banner
-  now points readers to HANDOFF/ARCHITECTURE, but the body still needs a rewrite.
-- **Resolution plan:** Rewrite README once the modular migration stabilises.
+  marketplace, Atlassian Connect) that doesn't match Milestone-1 reality.
+  `HANDOFF.md` is the authoritative source of truth in the interim.
+- **Resolution plan:** Rewrite in S1-5 or when modular migration stabilises.
+
+---
+
+## Recently closed defects
+
+### VRD-D011 — "Push to Xray" fails — Verified ✅
+- **Severity:** S2 · **Status:** Verified · **Fixed in:** `bd99710` (v0.4.0)
+- **Root cause:** All test cases were being pushed as a single blob into one Jira
+  issue description. Xray expected individual Test-type issues.
+- **Resolution:** Each AI-generated item (test case, scenario, charter) is now parsed
+  into its own card with its own **Push** button. Each push creates one Jira issue
+  linked back to the source story. Verified in session: APR-101, APR-102, APR-103
+  created and linked to APR-42.
+
+### VRD-D012 — Non-admin users not persisted across restart — Verified ✅
+- **Severity:** S3 · **Status:** Verified · **Fixed in:** Sprint 3 (`sprint/s3-users`)
+- **Root cause:** Users lived only in the in-memory `USERS` dict; only the admin was
+  persisted to the settings table and restored on startup.
+- **Resolution:** `user_repository.py` implements full SQLAlchemy CRUD with a
+  write-through cache. Every user write is persisted to the `users` table. All users
+  (not just admin) now survive restart. Jira credentials restored for all users on startup.
 
 ---
 

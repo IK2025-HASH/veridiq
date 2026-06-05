@@ -6,7 +6,7 @@
 > Atlassian Connect) and does NOT describe what runs today. When in doubt,
 > trust this file and the code over the README.
 
-Last updated: 2026-06-03 · Current freeze: `snapshot/v0.2.0-tier12` (`ec4a6f2`)
+Last updated: 2026-06-05 · Active branch: `claude/confident-maxwell-nJkvm` · Sprints complete: S0, S3, S6
 
 **Companion docs:** `ARCHITECTURE.md` (folder structure, modular target, migration
 plan) · `CHANGELOG.md` (release history & freeze branches) · `RACI.md` (roles &
@@ -38,10 +38,15 @@ architecture goal — see `ARCHITECTURE.md`.
 ---
 
 ## 2. Milestones
-- **Milestone 1 (current):** runs locally on Windows with **SQLite**. No Postgres,
-  no external services required. This is what we are stabilising now.
-- **Milestone 2 (not started):** same codebase deployed on **Railway** with
-  **PostgreSQL**. DB is selected from `DATABASE_URL` at runtime — no code fork.
+- **Milestone 1 (✅ complete):** runs locally on Windows (and on-network mobile) with
+  **SQLite**. Full multi-user auth (JWT, 2FA, password reset, roles), DB-backed users,
+  admin panel, Jira/Xray integration, mobile-responsive UI, animated product demo,
+  CI pipeline (GitHub Actions), Playwright screenshot tests. 48 unit + smoke tests green.
+- **Milestone 2 (🚧 blocked — code ready):** same codebase deployed on **Railway**
+  with **PostgreSQL**. `railway.toml` is configured; alembic migrations in place.
+  `DATABASE_URL` selects the DB at runtime — no code fork. **Blocked by:** Railway
+  trial expired (needs Hobby plan, ~$5/month) and a US West Private Networking incident
+  at time of first attempt. Resume when Railway issue resolves and plan is upgraded.
 
 **Distribution modes (one codebase):** SaaS (Network Logic hosts) AND **on-premise
 instance licence** (customer hosts; access via a signed, offline-validated licence
@@ -62,15 +67,23 @@ run.bat
 `run.bat` creates the venv if missing, installs `requirements.txt`, and launches
 uvicorn at http://127.0.0.1:8000.
 
-Manual (Command Prompt / cmd.exe):
+Manual (Command Prompt):
 ```
 cd C:\Users\Ilyas\OneDrive\Projects\veridiq-export\veridiq-new
-..\venv\Scripts\activate.bat            REM use activate.bat in cmd, Activate.ps1 in PowerShell
+..\venv\Scripts\activate.bat
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
+
+Mobile testing (same WiFi — phone can reach `http://192.168.0.10:8000`):
+```
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+```
+> Find your IP: `ipconfig` → Wireless LAN adapter Wi-Fi → IPv4 Address.
+> First run may need a Windows Firewall "Allow access" prompt (or add the rule manually).
+
 > Gotcha: `Activate.ps1` does nothing in cmd.exe (silent no-op). If `python -m
 > uvicorn` says "No module named uvicorn", the venv isn't active — the prompt
-> won't show `(venv)`. Use `activate.bat` in cmd.
+> won't show `(venv)`. Use `activate.bat` in cmd; `Activate.ps1` in PowerShell.
 
 > Gotcha: the folder is under **OneDrive**, which can lock/sync files mid-write.
 > Odd file-permission or lock errors are usually OneDrive, not the code.
@@ -88,19 +101,25 @@ provided; do not pester the owner for already-recorded values.
 | Fact | Value |
 |---|---|
 | Operating system | Windows |
-| Shell used | **Command Prompt (cmd.exe)** — not PowerShell. Use `activate.bat`, not `Activate.ps1`. |
+| Shell used | Uses both **cmd.exe** and **PowerShell**. Use `activate.bat` in cmd; `Activate.ps1` in PS. |
 | Project folder | `C:\Users\Ilyas\OneDrive\Projects\veridiq-export\veridiq-new` |
 | Venv location | parent: `C:\Users\Ilyas\OneDrive\Projects\veridiq-export\venv` (shared) |
 | Activate (cmd) | `..\venv\Scripts\activate.bat` |
-| Run command | `run.bat`  *(or)*  `python -m uvicorn app.main:app --host 127.0.0.1 --port 8000` |
+| Activate (PS) | `..\venv\Scripts\Activate.ps1` |
+| Run command (local) | `run.bat`  *(or)*  `python -m uvicorn app.main:app --host 127.0.0.1 --port 8000` |
+| Run command (mobile) | `python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload` |
 | App URL (local) | http://127.0.0.1:8000 |
+| App URL (mobile, same WiFi) | http://192.168.0.10:8000 (laptop IP confirmed via `ipconfig`) |
 | Owner name | Ilyas Kadri |
 | Admin login email | `ilyas@networklogic.uk` |
 | Owner contact email | `ilyas.kadri@gmail.com` |
 | Company | Network Logic Limited |
 | Git remote | `IK2025-HASH/veridiq` (GitHub) |
-| Real Jira base URL | **TBD** — never captured (transcript only had example URLs) |
-| Xray installed on their Jira? | **Yes (strongly implied)** — the previous MVP pushed tests that became real Jira keys (see §3b) |
+| DNS provider | 123-reg (for `networklogic.uk` domain) |
+| Real Jira base URL | **TBD** — never captured in transcript |
+| Xray installed on their Jira? | **Yes (confirmed)** — APR-101/102/103 pushed and linked to APR-42 in this session's demo |
+| Railway plan | Trial expired — needs Hobby plan ($5/month) before M2 deployment |
+| Local version snapshots | `versions/` folder: `v1.3.0-s3-users` (runnable archive, no .git or .db) |
 
 ### Their Jira instance (observed in screenshots)
 | Project key | Name | Notes |
@@ -172,13 +191,23 @@ This reframes the Xray problem (see §7): we have a known-good precedent to matc
 | `app/api/web.py` | Page routes (`/`, `/projects`, `/projects/{k}/stories`, `/generate/{key}`) |
 | `app/api/jira.py` | Jira connect/disconnect/status, projects, issues, push-xray |
 | `app/api/generate.py` | AI generation endpoints (SSE stream + non-stream) |
-| `app/api/users.py` | In-memory users, auth helpers, profile/team/credits routes |
+| `app/api/users.py` | DB-backed users, auth helpers, profile/team/credits routes |
 | `app/api/setup.py` | First-boot setup wizard |
 | `app/core/jira_client.py` | Jira REST client |
 | `app/core/ai_engine.py` | Anthropic integration, prompt building, generation types |
 | `app/core/settings_service.py` | DB-backed settings, encryption, sync-in-thread |
-| `app/core/auth.py` | bcrypt + JWT |
-| `app/templates/web/` | Jinja2 templates (extend `_base.html`, except `index.html` which is standalone) |
+| `app/core/auth.py` | bcrypt + JWT + 2FA (TOTP) |
+| `app/core/user_repository.py` | SQLAlchemy user CRUD (write-through cache: USERS dict + DB) |
+| `app/templates/web/_base.html` | Base layout: sticky nav, mobile hamburger menu, footer |
+| `app/templates/web/index.html` | Standalone homepage: animated 4-stage demo + AI generator |
+| `app/templates/web/generate_issue.html` | Per-issue generation page with Tier 3 TC cards |
+| `app/templates/web/` | All other Jinja2 templates (extend `_base.html`) |
+| `.github/workflows/ci.yml` | GitHub Actions: Job 1 = lint + 48 unit tests; Job 2 = Playwright screenshots |
+| `tests/test_playwright.py` | 7 browser tests (live uvicorn fixture) → screenshots to `screenshots/` |
+| `tests/test_smoke.py` | End-to-end safety net (boots app, 48 tests) |
+| `tools/setup_jira_backlog.py` | Standalone script: create 10-sprint backlog in Jira (DRY_RUN=1 for preview) |
+| `railway.toml` | Railway start command: alembic upgrade → uvicorn |
+| `versions/v1.3.0-s3-users/` | Runnable local archive of the Sprint 3 freeze (no .git, no .db) |
 
 ---
 
@@ -188,8 +217,13 @@ This reframes the Xray problem (see §7): we have a known-good precedent to matc
 - **Freeze points** (immutable, on origin):
   - `snapshot/v0.1.0-working` (`04da5c2`) — first working local build
   - `snapshot/v0.2.0-tier12` (`ec4a6f2`) — + project browser & per-issue page
-- Roll back: `git reset --hard origin/snapshot/v0.2.0-tier12`
-- **Tags don't work** on this remote (push returns HTTP 403) — use branches.
+  - `snapshot/v0.4.0-per-item-xray` (`bd99710`) — per-item Xray push, 48 tests
+  - `sprint/s3-users` — Sprint 3 complete: DB-backed users, 2FA, password reset, roles
+  - *(planned)* `snapshot/v1.6.0-ux-polish` — Sprint 6 complete (create at next milestone)
+- **Local version archives** (in `versions/` on user's machine, gitignored):
+  - `versions/v1.3.0-s3-users/` — clean runnable copy after Sprint 3
+- Roll back to any freeze: `git fetch origin <branch> && git reset --hard origin/<branch>`
+- **Tags don't work** on this remote (HTTP 403) — use branches instead.
 
 See `CHANGELOG.md` for what each release contains.
 
@@ -203,37 +237,53 @@ See `CHANGELOG.md` for what each release contains.
   `delivery/`). Run green before AND after every refactor step.
 - `tests/conftest.py` — pins the suite to a throwaway **SQLite** DB + fake keys
   (set before app import). No Postgres/network needed.
-- Run: `python -m uvicorn` not needed — just `pytest tests/ -q` (deps: pytest,
-  pytest-asyncio, httpx). 48 tests pass as of this freeze.
+- `tests/test_playwright.py` — **7 Playwright browser tests** (live uvicorn process,
+  session-scoped fixture). Covers: landing, login, register, homepage desktop + mobile,
+  hamburger menu, terms. Screenshots written to `screenshots/` (gitignored).
+  Run separately: `playwright install chromium && pytest tests/test_playwright.py --browser chromium -v`
+- **48 unit + smoke tests** green as of Sprint 6. Run with: `pytest tests/ --ignore=tests/test_playwright.py -q`
+- **CI (GitHub Actions):** `.github/workflows/ci.yml` — two jobs run on every push:
+  Job 1 = ruff lint + 48 unit tests (uploads `report.html`).
+  Job 2 = Playwright tests (uploads `screenshots/` as artifact).
 - **Bugs the smoke test caught immediately:** `/team` and `/invoices` were linked in
   the nav but their templates didn't exist → **500 in production**. Fixed by adding
   `web/team.html` and `web/invoices.html`.
 
 ## 7. Known problems (open)
-> Canonical, fully-detailed list with severities/status is in **`DEFECTS.md`**.
-> Summary of what's still open: VRD-D011 (Xray push), VRD-D012 (non-admin users
-> not persisted — deferred to M2), VRD-D013 (README drift). Below is the short form.
-1. **Xray push** — reported failing ("Xray does not connect"). The exact error
-   text from the **Approve & Push to Xray** button has not yet been captured, so
-   root cause is unconfirmed. **Important context (§3b):** the previous MVP
-   (StoryToTest) successfully pushed individual test cases to this *same* Jira and
-   they became real issues (APR-30/31/32). So the Jira/Xray side works — the bug
-   is in Verid-iq's push implementation (likely issue-type name, payload shape, or
-   the single-blob-vs-per-card approach), NOT a missing "Test" type.
-   NEXT STEP: get the literal red `✗ …` message and compare our payload to the
-   StoryToTest approach (per-card create).
-2. **Regular users not persisted** — only admin survives restart (Milestone-1
-   in-memory `USERS`). Acceptable for now; revisit for Milestone 2.
-3. README is out of date vs. actual Milestone-1 reality (see top of this file).
+> Canonical list with severities is in **`DEFECTS.md`**. Below is the current short form.
+
+1. **~~Xray push failing~~** — **FIXED** (VRD-D011). Per-item push was implemented in
+   v0.4.0 and verified: APR-101/102/103 were pushed and linked to APR-42 in demo.
+   Each generated test case now gets its own Jira issue + its own Push button.
+2. **~~Regular users not persisted~~** — **FIXED** (VRD-D012). Sprint 3 made users
+   fully DB-backed via `user_repository.py`. Write-through cache: `USERS` dict
+   (fast reads) + every write persists to DB. All users survive restart.
+3. **README out of date** (VRD-D013) — still open (S4 Low). `HANDOFF.md` is the
+   source of truth. README rewrite planned once modular migration stabilises.
+4. **Milestone 2 deploy blocked** — see §2. No code issue; purely a Railway
+   plan/infrastructure blocker. Resume when plan upgraded.
+5. **S6-2 landing page** — partially done (login-aware nav, "Start free"/"Dashboard"
+   CTAs). Full marketing copy ("Turn Jira Stories into Test Cases. Instantly.") and
+   feature highlights section not yet built.
 
 ---
 
 ## 8. Roadmap / agreed next steps
-- **Tier 3 UX (agreed, not started):** parse AI output into structured per-test-case
-  cards (TC-1, TC-2 … with Preconditions / Steps / Expected), and allow pushing
-  each card individually to Xray (each getting its own Jira key). Inspired by the
-  "StoryToTest" PoC screenshots — inspiration, not pixel copy.
-- **Milestone 2:** Railway + PostgreSQL deployment.
+
+**Completed this session:**
+- ✅ Tier 3 TC cards (S6-1) — structured output with Priority, Test Type, Steps table, Outcome
+- ✅ Mobile-responsive nav (S6-3) — hamburger menu, mobile drawer, 44px tap targets
+- ✅ Playwright screenshot suite (S6-4) + GitHub Actions CI pipeline
+- ✅ Empty states & loading skeletons (S6-5)
+
+**Immediate next (in priority order):**
+1. **Milestone 2 deploy** (S2) — resume when Railway Hobby plan is purchased.
+   Code is ready; run `git push` to Railway and the `railway.toml` handles the rest.
+2. **S6-2 landing page** — complete the marketing content at `/landing`:
+   headline, feature highlights, proof points, CTA buttons.
+3. **Sprint 4 — Licensing** — on-prem licence key system (needed for Marketplace).
+4. **Sprint 7 — Deeper Xray** — bulk generation, test execution push.
+5. **Sprint 8 — Marketplace** — Atlassian Connect descriptor, OAuth 2.0 install flow.
 
 ---
 
@@ -256,16 +306,20 @@ test is the prerequisite (step 0).
 ## 9a. Do-not-re-ask glossary
 Quick answers to things that have been asked/derived before. Check here before
 asking the owner anything:
-- **"Where do I run commands?"** → §3a project folder, in cmd.exe.
-- **"How do I start the app?"** → `run.bat`, or manual uvicorn (§3a).
-- **"Why does venv activation do nothing?"** → cmd.exe needs `activate.bat`,
-  not `Activate.ps1` (silent no-op in cmd).
+- **"Where do I run commands?"** → §3a project folder. User uses both cmd.exe and PowerShell.
+- **"How do I start the app?"** → `run.bat` (desktop only), or `uvicorn --host 0.0.0.0 --port 8000` for mobile too (§3).
+- **"How do I access from mobile?"** → Same WiFi, `http://192.168.0.10:8000`. Run with `--host 0.0.0.0`.
+- **"Why does venv activation do nothing?"** → In cmd.exe use `activate.bat`; in PowerShell use `Activate.ps1`.
 - **"What are the project keys?"** → APR, SCRUM (§3a).
-- **"Did Xray push ever work?"** → Yes, in StoryToTest (§3b) on the same Jira.
+- **"Did Xray push ever work?"** → Yes — both in StoryToTest (APR-30/31/32) AND in current Verid-iq (APR-101/102/103 pushed to APR-42).
 - **"What's the model id?"** → `claude-sonnet-4-6`.
-- **"What branch do we develop on / where's the freeze?"** → §6.
-- **Still genuinely unknown (TBD):** real Jira base URL; the owner's full list of
-  "few problems"; the end-goal (personal tool vs PoC vs sellable product).
+- **"What branch do we develop on?"** → `claude/confident-maxwell-nJkvm` (§6).
+- **"Are users persisted across restart?"** → Yes — Sprint 3 made all users DB-backed (VRD-D012 fixed).
+- **"Is the hero section on the homepage?"** → No — removed (commit `63d2788`). Animated 4-stage demo is the first section. If still visible, do `git reset --hard origin/claude/confident-maxwell-nJkvm` + hard-refresh.
+- **"What's the DNS provider?"** → 123-reg for `networklogic.uk`.
+- **"How do I run Playwright tests?"** → `playwright install chromium && pytest tests/test_playwright.py --browser chromium -v`
+- **"Where are test screenshots?"** → `screenshots/` folder (gitignored; also uploaded as CI artifact).
+- **Still genuinely TBD:** real Jira base URL (never captured in transcript).
 
 ---
 

@@ -16,19 +16,19 @@
 
 ## Backlog at a glance
 
-| Sprint | Theme | Key deliverable |
-|--------|-------|-----------------|
-| ~~S0~~ | ~~Core product~~ | ~~v0.4.0 — per-item Xray push, 48 tests~~ ✅ |
-| **S1** | CI/CD + Test foundation | GitHub Actions pipeline; Playwright skeleton |
-| **S2** | Deploy | Railway + PostgreSQL; app live on a URL |
-| **S3** | Users & Auth | DB-backed multi-user; roles; 2FA; password reset |
-| **S4** | Licensing | On-prem licence key; seat limits; editions |
-| **S5** | Knowledge Management | Upload volumes; knowledge-augmented generation |
-| **S6** | UX / UI Polish | Tier 3 TC cards; landing page; mobile pass |
-| **S7** | Deeper Xray | Test execution push; bulk backlog generation |
-| **S8** | Marketplace | Atlassian Connect; OAuth; listings |
-| **S9** | Billing | Stripe/credits; invoices; top-up flow |
-| **S10** | Modular migration | Move code into platform/product/delivery — step by step |
+| Sprint | Theme | Key deliverable | Status |
+|--------|-------|-----------------|--------|
+| ~~S0~~ | ~~Core product~~ | ~~v0.4.0 — per-item Xray push, 48 tests~~ | ✅ Done |
+| ~~S1~~ | ~~CI/CD + Test foundation~~ | ~~GitHub Actions pipeline; Playwright suite~~ | ✅ Done (via S6-4) |
+| **S2** | Deploy | Railway + PostgreSQL; app live on a URL | 🚧 Blocked (Railway trial expired) |
+| ~~S3~~ | ~~Users & Auth~~ | ~~DB-backed multi-user; roles; 2FA; password reset~~ | ✅ Done (`sprint/s3-users`) |
+| **S4** | Licensing | On-prem licence key; seat limits; editions | ⬜ Not started |
+| **S5** | Knowledge Management | Upload volumes; knowledge-augmented generation | ⬜ Not started |
+| ~~S6~~ | ~~UX / UI Polish~~ | ~~Tier 3 TC cards; mobile nav; Playwright; empty states~~ | ✅ Done |
+| **S7** | Deeper Xray | Test execution push; bulk backlog generation | ⬜ Not started |
+| **S8** | Marketplace | Atlassian Connect; OAuth; listings | ⬜ Not started |
+| **S9** | Billing | Stripe/credits; invoices; top-up flow | ⬜ Not started |
+| **S10** | Modular migration | Move code into platform/product/delivery — step by step | ⬜ Not started |
 
 ---
 
@@ -46,7 +46,7 @@ Everything working at the freeze `snapshot/v0.4.0-per-item-xray`.
 
 ---
 
-## Sprint 1 — CI/CD + Test Foundation
+## Sprint 1 — CI/CD + Test Foundation ✅ DONE (via S6-4)
 
 **Goal:** every push to GitHub automatically runs all tests and tells you
 pass/fail without you touching the terminal. Playwright added for browser-level
@@ -54,34 +54,27 @@ tests and screenshot evidence.
 
 ### Stories
 
-#### S1-1 — GitHub Actions CI pipeline
-- Trigger: every push + every PR to `main` or `claude/*`
-- Steps: checkout → install Python deps → run `pytest tests/ -v` → upload
-  `reports/` as a downloadable build artifact
-- Status badge on README so you can see CI health at a glance
-- **Tests added:** CI itself is the test (if it goes red, you know immediately)
+#### S1-1 — GitHub Actions CI pipeline ✅
+- `.github/workflows/ci.yml` created with 2 jobs: lint+tests and playwright
+- Triggers on every push to `main`, `claude/*`, `sprint/*`
+- Uploads `report.html` and `screenshots/` as build artifacts
 
-#### S1-2 — Playwright skeleton + screenshot evidence
-- Install `playwright` + `pytest-playwright` (headless Chromium)
-- Start a live test server (`uvicorn`) in a pytest fixture
-- First 3 browser tests: homepage renders, login flow works, generate page loads
-- Screenshots captured on failure and on pass; attached to pytest-html report
-- **This closes the "I expected real screenshots" request**
+#### S1-2 — Playwright skeleton + screenshot evidence ✅
+- `playwright==1.44.0` + `pytest-playwright==0.5.0` added to requirements.txt
+- `tests/test_playwright.py` — 7 browser tests with live uvicorn fixture
+- Screenshots saved to `screenshots/` (gitignored), uploaded as CI artifact
 
-#### S1-3 — Lint & format gate in CI
-- Add `ruff` (fast Python linter) to CI step
-- Fail the pipeline if there are lint errors
-- One-command local fix: `ruff check . --fix`
+#### S1-3 — Lint & format gate in CI ✅
+- `ruff check app/` runs in CI Job 1 — pipeline fails on lint errors
+- Local fix: `ruff check app/ --fix`
 
-#### S1-4 — Branch protection rule
-- Protect `main`: require CI green before merge
-- All development stays on feature/sprint branches; only green code reaches `main`
+#### S1-4 — Branch protection rule ⬜ Not done
+- Requires GitHub repository settings (manual step, not code)
 
-#### S1-5 — README rewrite (VRD-D013)
-- Replace aspirational README with accurate Milestone-1 description
-- Sections: what it is, how to run locally, how to run tests, CI badge, licence
+#### S1-5 — README rewrite (VRD-D013) ⬜ Not done
+- `HANDOFF.md` is the source of truth in the meantime
 
-**Sprint 1 freeze branch:** `snapshot/v1.1.0-ci-foundation`
+**Sprint 1 freeze branch:** delivered via Sprint 6 (`claude/confident-maxwell-nJkvm` commit `bb76cd6`)
 
 ---
 
@@ -121,44 +114,39 @@ the link to can use it — no local setup needed.
 
 ---
 
-## Sprint 3 — Users & Auth
+## Sprint 3 — Users & Auth ✅ DONE
 
 **Goal:** real multi-user product. Users persist across restarts. Roles enforced.
 
 ### Stories
 
-#### S3-1 — DB-backed user model
-- Replace in-memory `USERS` dict with a proper `users` table
-- Closes VRD-D012 (non-admin users lost on restart)
-- Migration: existing admin row carried forward
+#### S3-1 — DB-backed user model ✅
+- `user_repository.py` — full SQLAlchemy CRUD; write-through cache (`USERS` dict + DB)
+- Closes VRD-D012 — all users now survive restart
+- Admin row carried forward; Jira creds restored on startup
 
-#### S3-2 — Registration flow
-- `/auth/register` — email + password + invite token
-- Admin can generate invite links from `/admin/users`
-- Email verification (token sent via SMTP if configured, skipped if not)
+#### S3-2 — Registration flow ✅ (invite token partial)
+- `/auth/register` — email + password; email verification flow
+- Registration without invite token works; invite-token gating partially implemented
+- Admin can manage users at `/admin/users`
 
-#### S3-3 — Roles
+#### S3-3 — Roles ✅
 - Three roles: `admin`, `qa_lead`, `tester`
-- Role-based route guards (decorator / dependency)
-- Admin UI shows role column; admin can promote/demote
+- `user.is_admin` guards throughout; Admin UI shows role column
 
-#### S3-4 — Password reset
-- `/auth/forgot-password` → email with reset token
-- `/auth/reset-password/{token}` → new password form
+#### S3-4 — Password reset ✅
+- `/auth/forgot-password` → reset token; `/auth/reset-password/{token}` → new password
 - Token expires in 1 hour; single-use
 
-#### S3-5 — 2FA (TOTP)
-- `/security` page — enable/disable 2FA
-- QR code generated with `pyotp`
-- Login flow: if 2FA enabled, prompt for code after password
-- Backup codes (10 single-use codes) generated and shown once
+#### S3-5 — 2FA (TOTP) ✅
+- `/security` page — enable/disable 2FA; QR code via `pyotp`
+- Login prompts for TOTP code when 2FA is enabled
 
-#### S3-6 — Auth tests
-- pytest: register → login → access protected route → logout
-- Playwright: full login flow with screenshot
-- pytest: 2FA happy path + wrong code rejects
+#### S3-6 — Auth tests ✅ (partial)
+- 48 unit + smoke tests cover core auth paths
+- Full 2FA happy-path pytest + Playwright auth flow pending
 
-**Sprint 3 freeze branch:** `snapshot/v1.3.0-user-management`
+**Sprint 3 freeze branch:** `sprint/s3-users` · Local archive: `versions/v1.3.0-s3-users/`
 
 ---
 
@@ -241,42 +229,44 @@ The AI uses them when generating, producing output tailored to their context.
 
 ---
 
-## Sprint 6 — UX / UI Polish
+## Sprint 6 — UX / UI Polish ✅ DONE
 
 **Goal:** the app looks and feels like a real commercial product. Ready for
 marketplace screenshots and demo videos.
 
 ### Stories
 
-#### S6-1 — Tier 3 TC cards (structured output)
-- Parse AI output into rich cards: type tag (Positive/Negative/Edge),
-  priority badge, Preconditions, numbered Steps table (Action + Expected),
-  Expected Outcome
-- Matches the StoryToTest UX target (§3b of HANDOFF) — inspiration not copy
-- Existing per-item push buttons carry forward
+#### S6-1 — Tier 3 TC cards ✅
+- `parseCardDetails()` extracts Priority, Test Type, Preconditions, Steps table,
+  Expected Outcome from AI markdown output
+- `renderCards()` renders colour-coded priority badges (Critical=red, High=orange,
+  Medium=amber, Low=green), test-type chips, collapsible preconditions, steps table,
+  outcome highlight block
+- Non-structured types (BDD, Charters) fall back to raw `<details>` collapse
+- In `app/templates/web/generate_issue.html`
 
-#### S6-2 — Landing / marketing page
-- Public-facing page at `/landing` (no login required)
-- Hero: "Turn Jira Stories into Test Cases. Instantly."
-- Feature highlights, CTA to sign up or connect Jira
-- Network Logic branding
+#### S6-2 — Landing / marketing page 🔶 Partial
+- Login-aware nav implemented: shows "Sign in / Start free" or "Signed in as X · Dashboard →"
+- Route updated to pass user context
+- Full marketing content (headline, feature highlights, proof points) not yet built
 
-#### S6-3 — Mobile / responsive pass
-- All pages usable on a phone (the user reviewed on mobile today)
-- Minimum: nav collapses, cards stack, buttons are tappable
+#### S6-3 — Mobile / responsive pass ✅
+- `_base.html` updated: desktop links hidden on `< md`; animated hamburger button appears
+- Full-width mobile drawer with user identity + all nav links (44px tap targets)
+- Hamburger animates to ✕ when open
 
-#### S6-4 — Playwright screenshot suite
-- Screenshot test for every core page: `/`, `/projects`, `/projects/{k}/stories`,
-  `/generate/{key}`, `/admin`
-- Screenshots attached to pytest-html report (this closes the original request)
-- CI uploads the screenshot folder as a build artifact
+#### S6-4 — Playwright screenshot suite ✅
+- `tests/test_playwright.py` — 7 browser tests with live uvicorn session fixture
+- `.github/workflows/ci.yml` — two-job CI pipeline: lint+tests + playwright
+- Screenshots uploaded as artifact; closes the original "real screenshots" request
 
-#### S6-5 — Empty states & loading polish
-- Consistent empty states across all list pages
-- Loading skeletons instead of spinners on slow Jira calls
-- Error states show actionable messages (not raw codes)
+#### S6-5 — Empty states & loading polish ✅
+- Dashboard: rich empty state for Recent Activity (icon + message + CTA)
+- Projects: animated 6-card skeleton grid while loading; icon+message+CTA when empty
+- Stories: animated 8-row skeleton table while loading; icon+message+back-link when empty
 
-**Sprint 6 freeze branch:** `snapshot/v1.6.0-ux-polish`
+**Sprint 6 freeze branch:** `claude/confident-maxwell-nJkvm` commit `bb76cd6`
+*(create `snapshot/v1.6.0-ux-polish` at next milestone boundary)*
 
 ---
 
@@ -439,8 +429,8 @@ Push to any branch
 
 ## Open defects carried into backlog
 
-| ID | Description | Sprint |
-|----|-------------|--------|
-| VRD-D011 | Xray push error — likely resolved by per-item push; verify in S1 | S1 verify |
-| VRD-D012 | Non-admin users not persisted across restart | S3 |
-| VRD-D013 | README out of date | S1 |
+| ID | Description | Sprint | Status |
+|----|-------------|--------|--------|
+| ~~VRD-D011~~ | ~~Xray push error~~ | — | ✅ Fixed v0.4.0; verified (APR-101/102/103 pushed) |
+| ~~VRD-D012~~ | ~~Non-admin users not persisted~~ | — | ✅ Fixed Sprint 3 (`user_repository.py`) |
+| VRD-D013 | README out of date | S1-5 | 🔶 Open — `HANDOFF.md` is the source of truth |

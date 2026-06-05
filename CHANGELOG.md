@@ -4,7 +4,77 @@ All notable changes to Verid-iq, newest first.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 **Freeze points** are immutable snapshot branches on the remote. To roll back to any
-of them: `git reset --hard origin/<snapshot-branch>`.
+of them: `git fetch origin <branch> && git reset --hard origin/<branch>`.
+
+---
+
+## [1.6.0] — 2026-06-05 · Sprint 6 UX Polish
+**Branch:** `claude/confident-maxwell-nJkvm` · **Commit:** `bb76cd6`
+*(freeze branch `snapshot/v1.6.0-ux-polish` to be created at next milestone)*
+
+### Added
+- **Tier 3 TC cards (S6-1):** AI output parsed into rich structured cards. Each Test
+  Case card shows a colour-coded priority badge (Critical/High/Medium/Low), test-type
+  chip (Functional/Negative/Boundary/Integration), collapsible preconditions, a Steps
+  table with Action + Expected Result columns, and an Expected Outcome highlight block.
+  Fallback to raw `<details>` for BDD/Charters types.
+- **Mobile hamburger nav (S6-3):** `_base.html` updated — desktop links hidden on
+  `< md` breakpoint; animated ☰/✕ hamburger button shown on mobile; full-width
+  mobile drawer with user identity, all nav links (44px tap targets), and sign-out.
+- **Playwright screenshot suite (S6-4):** `tests/test_playwright.py` (7 browser tests
+  — landing, login, register, homepage desktop+mobile, hamburger toggle, terms).
+  `playwright==1.44.0` + `pytest-playwright==0.5.0` added to requirements.txt.
+- **GitHub Actions CI pipeline (S6-4/S1):** `.github/workflows/ci.yml` — Job 1:
+  ruff lint + 48 unit tests (uploads `report.html`); Job 2: Playwright tests
+  (uploads `screenshots/` artifact). Triggers on push to `main`, `claude/*`, `sprint/*`.
+- **Empty states & loading skeletons (S6-5):**
+  - Dashboard: "No activity yet" state now has icon, message, and "Generate something →" CTA.
+  - Projects page: spinner replaced with animated 6-card skeleton grid; no-projects
+    state has icon, message, and "Check Jira settings →" link.
+  - Stories page: spinner replaced with animated 8-row skeleton table; no-issues
+    state has icon, message, and back-to-projects link.
+- **Homepage animated demo:** 4-stage auto-advancing walkthrough (Paste story →
+  Generating → Review cards → Pushed to Xray). Stage indicators, progress bar,
+  Back/Next controls. Self-contained `<style>` + `<script>`.
+- **Hero section removed:** "AI drafts. You review." text block removed from homepage;
+  animated demo is now the above-the-fold content.
+- **UX fixes (between sprints):** landing page now login-aware (shows "Dashboard →"
+  when signed in); character counter corrected 5000 → 50000; sign-in / get-started
+  buttons shown in nav when logged out.
+
+### Notes
+- Mobile access confirmed: `uvicorn --host 0.0.0.0 --port 8000`, open `http://192.168.0.10:8000` on phone.
+- S6-2 (landing page marketing content) partially done — nav is login-aware; full
+  copy/feature-highlights section still pending.
+
+---
+
+## [1.3.0] — 2026-06-04 · Sprint 3 — Full User Management & Auth
+**Freeze branch:** `sprint/s3-users` · **Local archive:** `versions/v1.3.0-s3-users/`
+
+Complete multi-user system. All users now persist across restarts. Full auth suite:
+registration, login, 2FA, password reset, roles, admin panel.
+
+### Added
+- **DB-backed users (S3-1):** `user_repository.py` — SQLAlchemy CRUD with a
+  write-through cache (`USERS` in-memory dict + every write persisted to DB).
+  Closes VRD-D012: all users survive restart. Admin and Jira credentials restored on startup.
+- **Registration flow (S3-2):** `/auth/register` — email + password + email
+  verification. Admin can view and manage users at `/admin/users`.
+- **Roles (S3-3):** `admin`, `qa_lead`, `tester`. `user.is_admin` guards on admin
+  routes. Admin UI shows role column; admin can promote/demote users.
+- **Password reset (S3-4):** `/auth/forgot-password` + `/auth/reset-password/{token}`.
+  Reset token expires in 1 hour; single-use.
+- **2FA — TOTP (S3-5):** `/security` page with QR code generation via `pyotp`.
+  Login prompts for TOTP code when 2FA is enabled. Backup codes generated on setup.
+- **Admin tooling:** `tools/setup_jira_backlog.py` — standalone script to create
+  the 10-sprint product backlog in Jira (DRY_RUN=1 for preview; idempotent).
+
+### Fixed
+- VRD-D012 — Non-admin users not persisted across restart. **Verified.**
+
+### Notes
+- 48 unit + smoke tests green.
 
 ---
 

@@ -33,7 +33,18 @@ This writes:
 |---|---|
 | `tests/test_smoke.py` | End-to-end safety net (boots app, renders pages, invariants) |
 | `tests/test_veridiq.py` | Unit tests (knowledge store, prompt assembly, API validation) |
+| `tests/test_playwright.py` | Browser tests: 7 Playwright tests with live uvicorn fixture |
 | `tests/conftest.py` | Shared setup: hermetic SQLite DB, fixtures (not tests) |
+
+---
+
+## How to run Playwright tests
+```
+playwright install chromium          # one-time setup
+pytest tests/test_playwright.py --browser chromium -v
+```
+Screenshots land in `screenshots/` (gitignored). In CI (GitHub Actions), they are
+uploaded as the `playwright-screenshots` artifact under the **Playwright Screenshots** job.
 
 ---
 
@@ -61,14 +72,30 @@ This writes:
 
 ---
 
+### C. Browser / Playwright — `tests/test_playwright.py`
+| Test | Asserts |
+|---|---|
+| `test_landing_page` | `/landing` renders; screenshot saved |
+| `test_login_page` | Email + password inputs visible; screenshot saved |
+| `test_register_page` | `/register` renders; screenshot saved |
+| `test_homepage_desktop` | `/` renders at desktop viewport; screenshot saved |
+| `test_homepage_mobile` | `/` at 375px — `#nav-hamburger` visible; screenshot saved |
+| `test_hamburger_opens_menu` | Click hamburger → `#mobile-menu` visible; screenshot saved |
+| `test_terms_page` | `/terms` renders; screenshot saved |
+
+Run separately (requires `playwright install chromium`). CI uploads screenshots as an artifact.
+
+---
+
 ## What is NOT yet covered (gaps / TODO)
 - **AI generation output** — not asserted (would call the real Anthropic API). The
   engine is exercised only up to prompt assembly.
-- **Xray push** (`VRD-D011`) — no test yet; add one when the bug is fixed (mock Jira).
+- **Xray push** — VRD-D011 now fixed and verified manually; a mock-Jira pytest case
+  would move it to fully Verified (auto-regression protection).
 - **Auth flows** — register/login/2FA happy-paths beyond setup are not asserted.
 - **Token/id routes** — `/invoices/{id}`, `/auth/reset-password/{token}`, `/join/{token}`
   need fixtures; excluded from smoke for now.
-- **Persistence across restart** — Jira-cred restore is verified by an ad-hoc script,
-  not yet a pytest case.
+- **Playwright: authenticated pages** — current browser tests cover only public pages.
+  Add login flow + generate page + admin page in next Playwright iteration.
 
 New fixes should add a test here so the defect moves to **Verified** in `DEFECTS.md`.
