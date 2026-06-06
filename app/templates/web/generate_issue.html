@@ -363,15 +363,18 @@ function buildCardInnerHTML(item, idx) {
 
     if (d.preconditions.length > 0) {
       html += `
-        <details class="group">
-          <summary class="text-xs text-slate-500 hover:text-slate-300 cursor-pointer transition select-none flex items-center gap-1">
-            <span class="group-open:rotate-90 inline-block transition-transform">▸</span>
-            Preconditions (${d.preconditions.length})
-          </summary>
-          <ul class="mt-2 space-y-1 pl-3 border-l-2 border-slate-700/50">
-            ${d.preconditions.map(p => `<li class="text-xs text-slate-400 leading-relaxed">${escHtml(p)}</li>`).join('')}
+        <div>
+          <div class="text-xs text-slate-500 mb-1.5">Preconditions</div>
+          <ul class="space-y-1 pl-3 border-l-2 border-slate-700/50">
+            ${d.preconditions.map((p, pi) => `
+              <li class="flex items-start gap-1.5">
+                <span class="text-slate-600 text-xs mt-1.5">-</span>
+                <input type="text" data-precond="${pi}"
+                  class="precond-input flex-1 text-xs bg-transparent border-b border-transparent hover:border-slate-600/50 focus:border-teal/40 text-slate-400 focus:text-slate-200 outline-none py-0.5 transition"
+                  value="${escHtml(p)}">
+              </li>`).join('')}
           </ul>
-        </details>`;
+        </div>`;
     }
 
     if (d.steps.length > 0) {
@@ -678,6 +681,19 @@ async function startGeneration() {
   }
 }
 
+// Return item.content with any in-card precondition edits applied
+function getEffectiveContent(idx) {
+  const item = parsedItems[idx];
+  const card = document.getElementById(`tc-card-${idx}`);
+  if (!card) return item.content;
+  const inputs = card.querySelectorAll('.precond-input');
+  if (!inputs.length) return item.content;
+  const precs = Array.from(inputs).map(i => i.value.trim()).filter(Boolean);
+  const newBlock = '**Preconditions:**\n' + precs.map(p => `- ${p}`).join('\n');
+  const updated = item.content.replace(/\*\*Preconditions:\*\*\n[\s\S]*?(?=\n\*\*|\n##|$)/, newBlock + '\n');
+  return updated !== item.content ? updated : item.content;
+}
+
 // Push a single card by index
 async function pushCard(idx, projectKeyOverride) {
   const projectKey = (projectKeyOverride || document.getElementById('xray-project').value.trim()).toUpperCase();
@@ -704,7 +720,7 @@ async function pushCard(idx, projectKeyOverride) {
       body: JSON.stringify({
         project_key: projectKey,
         summary:     summary,
-        content:     item.content,
+        content:     getEffectiveContent(idx),
         linked_issue_key: ISSUE_KEY,
       })
     });
