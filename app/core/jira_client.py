@@ -479,7 +479,7 @@ class JiraClient:
         test_id: str,
         preconditions: list[str],
     ) -> bool:
-        """Create a Pre-Condition issue and link it to the test via Xray GraphQL."""
+        """Create a Pre-Condition and link it to the test via Xray Cloud v2 GraphQL."""
         if not preconditions or not self.xray_client_id or not self.xray_client_secret or not test_id:
             return False
 
@@ -487,49 +487,86 @@ class JiraClient:
         if not token:
             return False
 
-        # Create the Pre-Condition Jira issue
-        pre_text = "\n".join(f"- {p}" for p in preconditions)
-        payload = {
-            "fields": {
-                "summary": f"Preconditions for {test_key}"[:255],
-                "issuetype": {"name": "Pre-Condition"},
-                "project": {"key": project_key},
-                "description": self._text_to_adf(pre_text),
-            }
+        xray_hdrs = self._xray_headers(token)
+        definition = "\n".join(f"- {p}" for p in preconditions)
+        summary = f"Preconditions for {test_key}"[:255]
+
+        # Primary: createPrecondition GraphQL mutation (bypasses Jira issue type scheme)
+        precond_id = None
+        gql_create = {
+            "query": (
+                "mutation CreatePrecondition($def:String!,$summary:String!,$proj:String!)"
+                "{createPrecondition(preconditionType:{name:\"Manual\"},definition:$def,"
+                "jira:{fields:{summary:$summary,project:{key:$proj}}})"
+                "{precondition{issueId}warnings}}"
+            ),
+            "variables": {"def": definition, "summary": summary, "proj": project_key},
         }
         try:
-            r = await client.post(
-                f"{self.base_url}/rest/api/3/issue", headers=self._headers, json=payload
-            )
-            if r.status_code == 400 and ("issuetype" in r.text.lower() or "issue type" in r.text.lower()):
-                logger.warning(f"Pre-Condition issue type not available in {project_key}, skipping preconditions")
-                return False
-            if not r.is_success:
-                logger.warning(f"Failed to create Pre-Condition for {test_key}: {r.status_code} {r.text[:200]}")
-                return False
+            r = await client.post(f"{XRAY_CLOUD_BASE}/graphql", headers=xray_hdrs, json=gql_create)
+            logger.info(f"Xray GraphQL createPrecondition {test_key}: {r.status_code} {r.text[:300]}")
+            if r.is_success:
+                resp = r.json()
+                if not resp.get("errors"):
+                    precond_id = (
+                        resp.get("data", {})
+                        .get("createPrecondition", {})
+                        .get("precondition", {})
+                        .get("issueId")
+                    )
+                else:
+                    logger.warning(f"Xray GraphQL createPrecondition errors: {resp['errors'][:2]}")
+        except Exception as e:
+            logger.warning(f"Xray GraphQL createPrecondition exception: {e}")
 
-            precond_id = r.json().get("id", "")
-            precond_key = r.json().get("key", "")
-            logger.info(f"Created Pre-Condition {precond_key} (id={precond_id}) for {test_key}")
-
-            # Link via Xray GraphQL addPreconditionsToTest
-            xray_hdrs = self._xray_headers(token)
-            gql = {
-                "query": (
-                    "mutation AddPreconditions($issueId:String!,$preconditionIssueIds:[String!]!)"
-                    "{addPreconditionsToTest(issueId:$issueId,preconditionIssueIds:$preconditionIssueIds)"
-                    "{addedPreconditions warning}}"
-                ),
-                "variables": {"issueId": test_id, "preconditionIssueIds": [precond_id]},
+        # Fallback: create via Jira REST (requires Pre-Condition issue type in project scheme)
+        if not precond_id:
+            payload = {
+                "fields": {
+                    "summary": summary,
+                    "issuetype": {"name": "Pre-Condition"},
+                    "project": {"key": project_key},
+                    "description": self._text_to_adf(definition),
+                }
             }
-            r2 = await client.post(f"{XRAY_CLOUD_BASE}/graphql", headers=xray_hdrs, json=gql)
+            try:
+                r = await client.post(
+                    f"{self.base_url}/rest/api/3/issue", headers=self._headers, json=payload
+                )
+                if r.status_code == 400 and ("issuetype" in r.text.lower() or "issue type" in r.text.lower()):
+                    logger.warning(f"Pre-Condition issue type not in {project_key} scheme; preconditions skipped")
+                    return False
+                if not r.is_success:
+                    logger.warning(f"Pre-Condition Jira create failed for {test_key}: {r.status_code} {r.text[:200]}")
+                    return False
+                data = r.json()
+                precond_id = data.get("id", "")
+                logger.info(f"Created Pre-Condition {data.get('key')} (id={precond_id}) for {test_key}")
+            except Exception as e:
+                logger.warning(f"Pre-Condition Jira create exception: {e}")
+                return False
+
+        if not precond_id:
+            return False
+
+        # Link the precondition to the test
+        gql_link = {
+            "query": (
+                "mutation AddPreconditions($issueId:String!,$preconditionIssueIds:[String!]!)"
+                "{addPreconditionsToTest(issueId:$issueId,preconditionIssueIds:$preconditionIssueIds)"
+                "{addedPreconditions warning}}"
+            ),
+            "variables": {"issueId": test_id, "preconditionIssueIds": [precond_id]},
+        }
+        try:
+            r2 = await client.post(f"{XRAY_CLOUD_BASE}/graphql", headers=xray_hdrs, json=gql_link)
             logger.info(f"Xray GraphQL addPreconditionsToTest {test_key}: {r2.status_code} {r2.text[:300]}")
             if r2.is_success and not r2.json().get("errors"):
                 return True
             if r2.is_success:
-                logger.warning(f"Xray GraphQL preconditions errors: {r2.json().get('errors', [])[:2]}")
+                logger.warning(f"Xray GraphQL addPreconditionsToTest errors: {r2.json().get('errors', [])[:2]}")
         except Exception as e:
-            logger.warning(f"Xray preconditions exception: {e}")
+            logger.warning(f"Xray addPreconditionsToTest exception: {e}")
         return False
 
     async def create_xray_test(
