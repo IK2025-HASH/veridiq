@@ -13,13 +13,15 @@
 <!-- NAV -->
 <nav class="border-b border-slate-700/50 bg-[#0D1B3E]/95 backdrop-blur sticky top-0 z-50">
   <div class="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
-    <a href="{% if user %}/dashboard{% else %}/{% endif %}" class="text-xl font-bold">
+    <a href="{% if user %}/dashboard{% else %}/{% endif %}" class="text-xl font-bold shrink-0">
       <span class="text-white">Verid</span><span class="text-[#00B5AD]">-iq</span>
     </a>
+
+    <!-- Desktop nav -->
     {% if user %}
-    <div class="flex items-center gap-1 text-xs">
+    <div class="hidden md:flex items-center gap-1 text-xs">
       <a href="/dashboard" class="px-3 py-1.5 rounded hover:bg-slate-700/50 text-slate-300 hover:text-white transition">Dashboard</a>
-      <a href="/" class="px-3 py-1.5 rounded hover:bg-slate-700/50 text-slate-300 hover:text-white transition">Generate</a>
+      <a href="/projects" class="px-3 py-1.5 rounded hover:bg-slate-700/50 text-slate-300 hover:text-white transition">Generate</a>
       <a href="/credits" class="px-3 py-1.5 rounded hover:bg-slate-700/50 text-slate-300 hover:text-white transition">Credits</a>
       <a href="/team" class="px-3 py-1.5 rounded hover:bg-slate-700/50 text-slate-300 hover:text-white transition">Team</a>
       <a href="/invoices" class="px-3 py-1.5 rounded hover:bg-slate-700/50 text-slate-300 hover:text-white transition">Invoices</a>
@@ -37,15 +39,79 @@
       </div>
     </div>
     {% else %}
-    <div class="flex items-center gap-2 text-xs">
+    <div class="hidden md:flex items-center gap-2 text-xs">
       <a href="/login" class="px-3 py-1.5 rounded border border-slate-600 text-slate-300 hover:border-[#00B5AD]/50 transition">Sign in</a>
       <a href="/register" class="px-3 py-1.5 rounded bg-[#00B5AD] text-[#0D1B3E] font-bold hover:bg-[#00B5AD]/80 transition">Get started free</a>
     </div>
     {% endif %}
+
+    <!-- Mobile right side -->
+    <div class="flex md:hidden items-center gap-3">
+      {% if user %}
+      <div class="flex items-center gap-1.5 bg-slate-800 rounded-lg px-2 py-1 border border-slate-600/50">
+        <span class="text-[#00B5AD] text-xs">⚡</span>
+        <span class="text-white font-bold text-xs">{{ user.credit_balance }}</span>
+      </div>
+      {% endif %}
+      <button id="nav-hamburger" aria-label="Menu" onclick="toggleMobileMenu()"
+        class="w-9 h-9 flex flex-col items-center justify-center gap-1.5 rounded-lg hover:bg-slate-700/50 transition">
+        <span class="block w-5 h-0.5 bg-slate-300 transition-all" id="hb-top"></span>
+        <span class="block w-5 h-0.5 bg-slate-300 transition-all" id="hb-mid"></span>
+        <span class="block w-5 h-0.5 bg-slate-300 transition-all" id="hb-bot"></span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Mobile menu -->
+  <div id="mobile-menu" class="hidden md:hidden border-t border-slate-700/50 bg-[#0D1B3E]">
+    <div class="max-w-7xl mx-auto px-6 py-4 space-y-1">
+      {% if user %}
+      <div class="flex items-center gap-2 pb-3 mb-3 border-b border-slate-700/50">
+        <div class="w-8 h-8 rounded-full bg-[#00B5AD]/20 border border-[#00B5AD]/40 flex items-center justify-center text-sm font-bold text-[#00B5AD]">
+          {{ user.display_name[0].upper() }}
+        </div>
+        <div>
+          <div class="text-sm font-medium text-white">{{ user.display_name }}</div>
+          <div class="text-xs text-slate-500">{{ user.email }}</div>
+        </div>
+      </div>
+      <a href="/dashboard" class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-slate-700/50 text-slate-300 hover:text-white transition text-sm">Dashboard</a>
+      <a href="/projects" class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-slate-700/50 text-slate-300 hover:text-white transition text-sm">Generate</a>
+      <a href="/credits" class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-slate-700/50 text-slate-300 hover:text-white transition text-sm">Credits</a>
+      <a href="/team" class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-slate-700/50 text-slate-300 hover:text-white transition text-sm">Team</a>
+      <a href="/invoices" class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-slate-700/50 text-slate-300 hover:text-white transition text-sm">Invoices</a>
+      {% if user.is_admin %}<a href="/admin" class="flex items-center gap-3 px-3 py-3 rounded-lg bg-purple/10 text-purple-300 hover:bg-purple/20 transition text-sm">Admin</a>{% endif %}
+      <a href="/profile" class="flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-slate-700/50 text-slate-300 hover:text-white transition text-sm">Profile</a>
+      <button onclick="fetch('/api/auth/logout',{method:'POST'}).then(()=>location.href='/login')"
+        class="w-full flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-slate-700/50 text-slate-500 hover:text-slate-300 transition text-sm text-left">Sign out</button>
+      {% else %}
+      <a href="/login" class="flex items-center justify-center px-4 py-3 rounded-lg border border-slate-600 text-slate-300 hover:border-[#00B5AD]/50 transition text-sm">Sign in</a>
+      <a href="/register" class="flex items-center justify-center px-4 py-3 rounded-lg bg-[#00B5AD] text-[#0D1B3E] font-bold hover:bg-[#00B5AD]/80 transition text-sm mt-2">Get started free</a>
+      {% endif %}
+    </div>
   </div>
 </nav>
 
-<main class="flex-1 max-w-5xl mx-auto w-full px-6 py-10">
+<script>
+function toggleMobileMenu() {
+  const menu = document.getElementById('mobile-menu');
+  const top = document.getElementById('hb-top');
+  const mid = document.getElementById('hb-mid');
+  const bot = document.getElementById('hb-bot');
+  const open = menu.classList.toggle('hidden') === false;
+  if (open) {
+    top.style.transform = 'translateY(8px) rotate(45deg)';
+    mid.style.opacity = '0';
+    bot.style.transform = 'translateY(-8px) rotate(-45deg)';
+  } else {
+    top.style.transform = '';
+    mid.style.opacity = '';
+    bot.style.transform = '';
+  }
+}
+</script>
+
+<main class="flex-1 {% block main_class %}max-w-5xl{% endblock %} mx-auto w-full px-6 py-10">
 {% block content %}{% endblock %}
 </main>
 

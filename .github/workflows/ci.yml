@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "claude/*", "sprint/*"]
+  pull_request:
+
+jobs:
+  # ── Lint + unit tests ────────────────────────────────────────────────────
+  test:
+    name: Lint & Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt ruff
+
+      - name: Lint (ruff)
+        run: ruff check app/
+
+      - name: Unit tests
+        run: |
+          pytest tests/ \
+            --ignore=tests/test_playwright.py \
+            --html=report.html \
+            --self-contained-html \
+            -v
+        env:
+          DATABASE_URL: "sqlite+aiosqlite:///./test_ci.db"
+          SECRET_KEY: "ci-test-secret"
+          ANTHROPIC_API_KEY: "sk-ant-test-placeholder"
+          ENVIRONMENT: "development"
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: report.html
+
+  # ── Playwright screenshot suite ──────────────────────────────────────────
+  playwright:
+    name: Playwright Screenshots
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install Playwright browsers
+        run: playwright install chromium --with-deps
+
+      - name: Run Playwright tests
+        run: |
+          pytest tests/test_playwright.py \
+            --browser chromium \
+            -v
+        env:
+          DATABASE_URL: "sqlite+aiosqlite:///./test_pw.db"
+          SECRET_KEY: "ci-test-secret"
+          ANTHROPIC_API_KEY: "sk-ant-test-placeholder"
+          ENVIRONMENT: "development"
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-screenshots
+          path: screenshots/

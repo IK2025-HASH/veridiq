@@ -83,6 +83,18 @@ async def lifespan(app: FastAPI):
                     "last_login": None,
                 })
                 logger.info(f"Admin user restored: {admin_email}")
+
+                # Restore Jira credentials for admin
+                jira_url = await settings_service.get(f"jira_url__{admin_id}")
+                jira_email = await settings_service.get(f"jira_email__{admin_id}")
+                jira_token = await settings_service.get(f"jira_api_token__{admin_id}")
+                jira_name = await settings_service.get(f"jira_display_name__{admin_id}")
+                if jira_url and jira_token:
+                    USERS[admin_id]["jira_url"] = jira_url
+                    USERS[admin_id]["jira_email"] = jira_email or ""
+                    USERS[admin_id]["jira_api_token"] = jira_token
+                    USERS[admin_id]["jira_display_name"] = jira_name or ""
+                    logger.info(f"Jira credentials restored for admin ({jira_url})")
         except Exception as e:
             logger.warning(f"Could not restore admin user: {e}")
 

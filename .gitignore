@@ -38,3 +38,5 @@ Thumbs.db
 .pytest_cache/
 .coverage
 htmlcov/
+# generated test-evidence reports (junit.xml, report.html)
+reports/

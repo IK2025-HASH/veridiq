@@ -5,10 +5,8 @@ from fastapi.testclient import TestClient
 from unittest.mock import patch, AsyncMock
 from pathlib import Path
 
-# Override settings before import
-import os
-os.environ["ANTHROPIC_API_KEY"] = "test-key"
-os.environ["DATABASE_URL"] = "postgresql+asyncpg://test:test@localhost/test"
+# Test environment (SQLite, fake keys) is set centrally in tests/conftest.py,
+# which pytest loads before this module — so app imports against SQLite here too.
 
 from app.main import app
 from app.core.knowledge import KnowledgeStore

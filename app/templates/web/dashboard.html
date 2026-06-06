@@ -59,7 +59,14 @@
       {% endfor %}
     </div>
     {% else %}
-    <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-8 text-center text-slate-600 text-sm">No activity yet</div>
+    <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-10 flex flex-col items-center justify-center gap-4 text-center">
+      <div class="w-12 h-12 rounded-full bg-slate-700/60 flex items-center justify-center text-2xl opacity-50">⚡</div>
+      <div>
+        <p class="text-slate-400 font-medium text-sm">No activity yet</p>
+        <p class="text-slate-600 text-xs mt-1">Your credit usage will appear here after your first generation.</p>
+      </div>
+      <a href="/" class="px-4 py-2 bg-teal/15 hover:bg-teal/25 text-teal text-xs font-semibold rounded-lg transition">Generate something →</a>
+    </div>
     {% endif %}
   </div>
 </div>

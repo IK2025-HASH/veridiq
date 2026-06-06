@@ -16,7 +16,7 @@ GenerationType = Literal[
 
 class GenerateRequest(BaseModel):
     generation_type: GenerationType
-    input_text: str = Field(..., min_length=10, max_length=5000)
+    input_text: str = Field(..., min_length=10, max_length=50000)
     quantity: int = Field(default=1, ge=1, le=20)
 
 class GenerateResponse(BaseModel):

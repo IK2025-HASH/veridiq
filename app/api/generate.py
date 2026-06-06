@@ -23,8 +23,19 @@ router = APIRouter()
 limiter = Limiter(key_func=get_remote_address)
 
 
+def _gen_rate_limit(*args, **kwargs) -> str:
+    """Callable limit: authenticated users get a very high limit; anon get RATE_LIMIT_PER_DAY.
+    slowapi calls this with the decorated function's positional/keyword arguments."""
+    request = next((a for a in args if hasattr(a, "cookies")), None) or kwargs.get("request")
+    if request:
+        from app.api.users import get_current_user
+        if get_current_user(request):
+            return "10000/day"
+    return f"{settings.RATE_LIMIT_PER_DAY}/day"
+
+
 @router.post("/generate/stream")
-@limiter.limit(f"{settings.RATE_LIMIT_PER_DAY}/day")
+@limiter.limit(_gen_rate_limit)
 async def generate_stream(request: Request, body: GenerateRequest):
     """
     Stream AI generation output via Server-Sent Events.
@@ -61,7 +72,7 @@ async def generate_stream(request: Request, body: GenerateRequest):
 
 
 @router.post("/generate", response_model=GenerateResponse)
-@limiter.limit(f"{settings.RATE_LIMIT_PER_DAY}/day")
+@limiter.limit(_gen_rate_limit)
 async def generate(request: Request, body: GenerateRequest):
     """
     Non-streaming generation endpoint.

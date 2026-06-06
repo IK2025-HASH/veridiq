@@ -3,6 +3,11 @@
 **AI-Powered Test Intelligence** — by Network Logic Limited  
 *AI drafts. You review. Your expertise, accelerated.*
 
+> ⚠️ **Picking up work?** Read [`HANDOFF.md`](./HANDOFF.md) first — it describes
+> the *actual current state* (v1.1.0: local Windows + SQLite, Xray Cloud v2 GraphQL confirmed working). Parts of this
+> README are aspirational (marketplace, Postgres-only, Atlassian Connect) and do
+> not reflect what runs today. See [`CHANGELOG.md`](./CHANGELOG.md) for release history.
+
 ---
 
 ## What is Verid-iq?
@@ -125,6 +130,8 @@ BASE_URL=https://veridiq.networklogic.uk
 
 - 8 AI generation types (Test Cases, BDD, Defect Reports, Test Plans, and more)
 - Batch generation with n= parameter
+- **Xray Cloud v2 GraphQL integration (v1.1.0):** test steps in Test Details tab, preconditions as separate Xray issues, tests auto-linked in Test Set
+- Preconditions editable inline before push; named prefixes (TC-N, PC-N, TS:, NTC-N, BDD-N, EC-N)
 - 3-layer AI with credit economy
 - Email + LinkedIn OAuth registration
 - TOTP two-factor authentication

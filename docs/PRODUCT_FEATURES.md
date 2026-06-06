@@ -130,13 +130,32 @@ Teams share a pooled credit balance. Team owners can top up on behalf of the tea
 
 ---
 
-## 8. Jira Integration
+## 8. Jira & Xray Integration
 
-Verid-iq is designed as a **Jira Connect Plugin** (Atlassian Marketplace):
-- Generates test artefacts directly from a Jira issue panel
-- Pre-populates input from issue summary, description, and acceptance criteria
-- Results surfaced within the issue view — no context switching
-- Listed on the SmartBear/Xray marketplace
+Verid-iq integrates directly with Jira and Xray for Jira Cloud:
+
+### Jira
+- Browse projects and stories (filtered to `issuetype = Story`)
+- Generate test artefacts from any story
+- Each pushed artefact creates a properly typed Jira issue linked to the source story
+
+### Xray Cloud v2 (GraphQL) — v1.1.0
+- **Test Steps** appear in the Xray Test Details tab (`addTestStep` GraphQL mutation, one call per step)
+- **Preconditions** become separate Xray Pre-Condition issues (`createPrecondition` GraphQL), each with its own Xray issue, linked to the test via `addPreconditionsToTest`
+- **Test Sets** automatically link tests in the Xray Tests tab (`addTestsToTestSet` GraphQL mutation)
+- **Preconditions editable** inline in the UI before push — users can refine each precondition before it is created in Xray
+
+### Issue Naming (v1.1.0)
+Pushed Jira issues get meaningful prefixes so they are instantly recognisable in the backlog:
+
+| Type | Prefix | Example |
+|---|---|---|
+| Test Case | `TC-N:` | TC-1: Login with valid credentials |
+| Negative Test Case | `NTC-N:` | NTC-1: Login with empty password |
+| BDD Scenario | `BDD-N:` | BDD-1: User logs in successfully |
+| Exploratory Charter | `EC-N:` | EC-1: Explore payment flow |
+| Precondition | `PC-N:` | PC-1: User account is active |
+| Test Set | `TS:` | TS: APR-28 — Scalability for peak load |
 
 ---
 
@@ -154,6 +173,7 @@ Verid-iq loads curated markdown knowledge volumes at startup. These inform AI ge
 ## 10. Rate Limiting
 
 - Default: 5 generations per day per IP (unauthenticated)
+- Authenticated users are rate-limited by user identity, not IP address (per-user limit via `slowapi` callable — v1.1.0 fix)
 - Configurable via `RATE_LIMIT_PER_DAY` environment variable
 - Enforced via `slowapi` middleware
 

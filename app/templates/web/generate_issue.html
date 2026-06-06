@@ -1,0 +1,973 @@
+{% extends "web/_base.html" %}
+{% block title %}Generate — {{ issue_key }}{% endblock %}
+{% block main_class %}max-w-7xl{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+
+  <!-- Breadcrumb -->
+  <nav class="flex items-center gap-2 text-sm text-slate-500" id="breadcrumb">
+    <a href="/projects" class="hover:text-teal transition">Projects</a>
+    <span class="text-slate-700">›</span>
+    <a id="bc-project" href="/projects" class="hover:text-teal transition">…</a>
+    <span class="text-slate-700">›</span>
+    <a id="bc-backlog" href="/projects" class="hover:text-teal transition">Backlog</a>
+    <span class="text-slate-700">›</span>
+    <span class="text-slate-300 font-medium">{{ issue_key }}</span>
+  </nav>
+
+  <!-- Split layout -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+
+    <!-- ── LEFT: Issue context ───────────────────────────────────── -->
+    <div class="lg:col-span-1 space-y-4">
+
+      <!-- Issue card -->
+      <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-5 space-y-4">
+
+        <!-- Loading -->
+        <div id="issue-loading" class="flex items-center gap-2 text-slate-500 text-sm py-4 justify-center">
+          <svg class="animate-spin w-4 h-4 text-teal" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+          </svg>
+          Loading issue…
+        </div>
+
+        <!-- Issue content (shown after load) -->
+        <div id="issue-content" class="hidden space-y-3">
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="text-teal font-mono text-xs font-bold bg-teal/10 px-2 py-0.5 rounded">{{ issue_key }}</span>
+            <span id="issue-type-badge" class="text-xs text-slate-400 bg-slate-700/50 px-2 py-0.5 rounded"></span>
+            <span id="issue-status-badge" class="text-xs px-2 py-0.5 rounded font-medium"></span>
+          </div>
+          <h2 id="issue-summary" class="text-white font-semibold text-sm leading-snug"></h2>
+          <div class="border-t border-slate-700/50 pt-3">
+            <div class="text-xs text-slate-500 uppercase tracking-wide mb-1.5">Description</div>
+            <div id="issue-description" class="text-slate-300 text-xs leading-relaxed whitespace-pre-wrap max-h-48 overflow-y-auto"></div>
+          </div>
+        </div>
+
+        <!-- Error -->
+        <div id="issue-error" class="hidden text-red-400 text-xs py-2"></div>
+      </div>
+
+      <!-- Generation type selector -->
+      <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl p-5 space-y-3">
+        <div class="text-xs font-semibold text-slate-400 uppercase tracking-wide">What to generate</div>
+        <div class="grid grid-cols-2 gap-1.5" id="type-grid">
+          {% for gt in generation_types %}
+          <button
+            data-key="{{ gt.key }}"
+            data-supports-qty="{{ gt.supports_quantity | lower }}"
+            onclick="selectType(this)"
+            class="type-btn rounded-lg px-2.5 py-2 text-left text-xs text-slate-300 bg-slate-700/40 hover:bg-slate-700 border border-slate-700/50 hover:border-teal/40 transition flex items-center gap-1.5">
+            <span>{{ gt.icon }}</span>
+            <span>{{ gt.label }}</span>
+          </button>
+          {% endfor %}
+        </div>
+
+        <!-- Quantity row -->
+        <div id="qty-row" class="hidden flex items-center gap-3 pt-1">
+          <span class="text-xs text-slate-400">How many?</span>
+          <div class="flex items-center gap-2 bg-slate-700/50 rounded-lg px-2 py-1 border border-slate-600/50">
+            <button onclick="adjustQty(-1)" class="text-slate-400 hover:text-white w-5 h-5 flex items-center justify-center rounded transition">−</button>
+            <span id="qty-display" class="text-white font-bold text-sm w-5 text-center">3</span>
+            <button onclick="adjustQty(1)" class="text-slate-400 hover:text-white w-5 h-5 flex items-center justify-center rounded transition">+</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Generate button -->
+      <button id="generate-btn" onclick="startGeneration()"
+        class="w-full py-3 bg-teal hover:bg-teal/80 disabled:opacity-40 disabled:cursor-not-allowed text-navy font-bold rounded-xl text-sm transition flex items-center justify-center gap-2">
+        <span id="btn-icon">✦</span>
+        <span id="btn-label">Generate</span>
+      </button>
+
+    </div>
+
+    <!-- ── RIGHT: Output ─────────────────────────────────────────── -->
+    <div class="lg:col-span-2 space-y-4">
+
+      <!-- Output card -->
+      <div class="bg-slate-800/60 border border-slate-700/50 rounded-xl min-h-[420px] flex flex-col">
+
+        <!-- Output header -->
+        <div class="flex items-center justify-between px-5 py-3 border-b border-slate-700/50">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-semibold text-slate-400 uppercase tracking-wide">Output</span>
+            <span id="output-badge" class="hidden text-xs px-2 py-0.5 rounded-full bg-teal/15 text-teal font-medium"></span>
+          </div>
+          <div class="flex items-center gap-2 flex-wrap justify-end">
+            <button id="copy-btn" onclick="copyOutput()" class="hidden text-xs text-slate-500 hover:text-white border border-slate-600/50 hover:border-slate-500 px-3 py-1.5 rounded-lg transition">Copy</button>
+            <div id="download-btn" class="hidden flex items-center gap-1.5 flex-wrap">
+              <input id="csv-test-set-key" type="text" placeholder="Test Set key e.g. APR-43"
+                class="hidden text-xs bg-slate-700/50 border border-slate-600/50 rounded-lg px-2 py-1.5 text-slate-300 focus:outline-none focus:border-teal/50 w-36 font-mono uppercase"
+                oninput="this.value=this.value.toUpperCase()"/>
+              <span class="text-xs text-slate-600">↓</span>
+              <button onclick="downloadOutput('txt')" class="text-xs text-slate-500 hover:text-white border border-slate-600/50 hover:border-slate-500 px-2.5 py-1.5 rounded-l-lg transition">Text</button>
+              <button onclick="downloadOutput('csv')" class="text-xs text-slate-500 hover:text-white border-y border-r border-slate-600/50 hover:border-slate-500 px-2.5 py-1.5 transition">CSV</button>
+              <button onclick="downloadOutput('json')" class="text-xs text-slate-500 hover:text-white border-y border-r border-slate-600/50 hover:border-slate-500 px-2.5 py-1.5 rounded-r-lg transition">JSON</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Empty state -->
+        <div id="empty-state" class="flex-1 flex flex-col items-center justify-center text-slate-600 gap-3 py-16">
+          <div class="text-4xl opacity-30">✦</div>
+          <p class="text-sm">Select a generation type and click Generate</p>
+        </div>
+
+        <!-- Loading/streaming state -->
+        <div id="stream-state" class="hidden flex-1 flex flex-col items-center justify-center gap-3 py-16 text-slate-500">
+          <svg class="animate-spin w-6 h-6 text-teal" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+          </svg>
+          <span class="text-sm" id="stream-label">Generating…</span>
+        </div>
+
+        <!-- Output content -->
+        <div id="output-content" class="hidden flex-1 p-5 space-y-3">
+          <!-- Raw text: shown during streaming and for non-batch types -->
+          <pre id="output-text" class="text-slate-200 text-xs leading-relaxed whitespace-pre-wrap font-mono overflow-x-auto"></pre>
+          <!-- Card view: shown after completion for batch types (TEST_CASES, BDD, etc.) -->
+          <div id="cards-container" class="hidden space-y-3"></div>
+        </div>
+      </div>
+
+      <!-- Push to Xray (hidden until output ready) -->
+      <div id="xray-section" class="hidden bg-slate-800/60 border border-slate-700/50 rounded-xl p-5 space-y-4">
+        <div class="flex items-center gap-2">
+          <span class="text-xs font-semibold text-slate-300 uppercase tracking-wide">Approve &amp; Push to Xray</span>
+          <span class="text-xs text-slate-600">— review output above, then push when happy</span>
+        </div>
+
+        <!-- Project key (always shown) -->
+        <div class="w-40">
+          <label class="text-xs text-slate-500 block mb-1">Project Key</label>
+          <input id="xray-project" type="text" placeholder="e.g. SCRUM"
+            class="w-full bg-slate-700/50 border border-slate-600/50 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-teal/50 font-mono uppercase"/>
+        </div>
+
+        <!-- Single-doc mode (non-batch types) -->
+        <div id="xray-single-fields" class="space-y-3">
+          <div>
+            <label class="text-xs text-slate-500 block mb-1">Test Title</label>
+            <input id="xray-summary" type="text" placeholder="Summary for the Xray issue"
+              class="w-full bg-slate-700/50 border border-slate-600/50 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-teal/50"/>
+          </div>
+          <div class="flex items-center gap-3">
+            <button onclick="pushSingleDoc()"
+              class="px-5 py-2.5 bg-purple/80 hover:bg-purple text-white font-bold rounded-lg text-sm transition flex items-center gap-2">
+              ✓ Approve &amp; Push to Xray
+            </button>
+            <span id="xray-msg" class="text-xs"></span>
+          </div>
+        </div>
+
+        <!-- Batch mode (TEST_CASES, BDD, Negative, Charters) -->
+        <div id="xray-batch-fields" class="hidden space-y-3">
+          <p class="text-xs text-slate-400">
+            <span id="batch-count" class="text-teal font-bold">0</span> items parsed — push individually using the buttons above, or push all at once below.
+          </p>
+          <div class="flex items-center gap-2 py-1">
+            <input type="checkbox" id="group-test-set"
+              class="w-4 h-4 rounded border-slate-600 bg-slate-700 text-teal focus:ring-teal/30 cursor-pointer">
+            <label for="group-test-set" class="text-xs text-slate-300 cursor-pointer select-none">Group into Test Set</label>
+            <span class="text-xs text-slate-600 ml-1">— creates a Test Set issue and links all tests to it</span>
+          </div>
+          <div class="flex items-center gap-3 flex-wrap">
+            <button id="push-all-btn" onclick="pushAllCards()"
+              class="px-5 py-2.5 bg-purple/80 hover:bg-purple text-white font-bold rounded-lg text-sm transition flex items-center gap-2">
+              ✓ Push All to Xray
+            </button>
+            <span id="xray-batch-msg" class="text-xs"></span>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const ISSUE_KEY   = "{{ issue_key }}";
+let selectedType  = null;
+let quantity      = 3;
+let fullOutput    = '';
+let issueData     = null;
+let parsedItems   = [];
+let jiraBaseUrl   = '';   // captured from the first created issue's URL
+let createdTestSetKey = '';  // set when a Test Set is created via Push All
+let testSetId = '';          // numeric Jira issue ID of the Test Set (Xray Cloud v2)
+
+// Regex patterns to split batch output into individual items
+const ITEM_PATTERNS = {
+  'TEST_CASES':          /^## Test Case (\d+):\s*(.+)$/m,
+  'BDD_SCENARIOS':       /^## Scenario (\d+):\s*(.+)$/m,
+  'NEGATIVE_TEST_CASES': /^## Negative Test Case (\d+):\s*(.+)$/m,
+  'EXPLORATORY_CHARTER': /^## Charter (\d+):\s*(.+)$/m,
+};
+
+// Short prefix badge per type
+const ITEM_PREFIX = {
+  'TEST_CASES':          'TC',
+  'BDD_SCENARIOS':       'BDD',
+  'NEGATIVE_TEST_CASES': 'NTC',
+  'EXPLORATORY_CHARTER': 'EC',
+};
+
+// Turn any FastAPI / HTTP error response into a readable string.
+// Handles 422 validation (detail is an array of objects), plain strings,
+// rate-limit shapes, and anything else without printing "[object Object]".
+async function readError(resp) {
+  let body;
+  try { body = await resp.json(); }
+  catch { return `HTTP ${resp.status} ${resp.statusText}`; }
+
+  const d = body.detail ?? body.error ?? body.message ?? body;
+  if (typeof d === 'string') return d;
+  if (Array.isArray(d)) {
+    // Pydantic validation errors → "field: message"
+    return d.map(e => {
+      const field = Array.isArray(e.loc) ? e.loc[e.loc.length - 1] : '';
+      return field ? `${field}: ${e.msg}` : (e.msg || JSON.stringify(e));
+    }).join('; ');
+  }
+  if (d && typeof d === 'object') return JSON.stringify(d);
+  return `HTTP ${resp.status}`;
+}
+
+// Build a link to the project's issue board, filtered to show newest first.
+// Base URL is captured from a created issue's URL (e.g. https://x.atlassian.net/browse/APR-41).
+function boardLink(projectKey) {
+  if (!jiraBaseUrl || !projectKey) return '';
+  return `${jiraBaseUrl}/issues/?jql=${encodeURIComponent(`project = ${projectKey} ORDER BY created DESC`)}`;
+}
+
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function parseBatchItems(text, type) {
+  const pattern = ITEM_PATTERNS[type];
+  if (!pattern) return null;
+  const regex = new RegExp(pattern.source, 'gm');
+  const matches = [...text.matchAll(regex)];
+  if (matches.length < 1) return null;
+  return matches.map((m, i) => ({
+    num:    parseInt(m[1]),
+    title:  m[2].trim(),
+    content: text.slice(m.index, i + 1 < matches.length ? matches[i + 1].index : text.length).trim(),
+    pushed: false,
+  }));
+}
+
+function priorityClasses(p) {
+  const m = {
+    'critical': 'bg-red-900/40 text-red-400 border border-red-800/50',
+    'high':     'bg-orange-900/40 text-orange-400 border border-orange-800/50',
+    'medium':   'bg-amber-900/40 text-amber-400 border border-amber-800/50',
+    'low':      'bg-emerald-900/40 text-emerald-400 border border-emerald-800/50',
+  };
+  return m[(p||'').toLowerCase()] || 'bg-slate-700/50 text-slate-400 border border-slate-600/50';
+}
+
+function typeClasses(t) {
+  const m = {
+    'functional':  'bg-blue-900/30 text-blue-400',
+    'negative':    'bg-red-900/30 text-red-400',
+    'boundary':    'bg-amber-900/30 text-amber-400',
+    'integration': 'bg-purple/20 text-purple-300',
+    'regression':  'bg-teal/15 text-teal',
+    'edge case':   'bg-orange-900/30 text-orange-400',
+  };
+  return m[(t||'').toLowerCase()] || 'bg-slate-700/40 text-slate-400';
+}
+
+function parseCardDetails(content) {
+  const r = { priority:'', testType:'', preconditions:[], steps:[], expectedOutcome:'' };
+
+  const pm = content.match(/\*\*Priority:\*\*\s*([^\n]+)/);
+  if (pm) r.priority = pm[1].trim();
+
+  const tm = content.match(/\*\*Test Type:\*\*\s*([^\n]+)/);
+  if (tm) r.testType = tm[1].trim();
+
+  const precondBlock = content.match(/\*\*Preconditions:\*\*\n([\s\S]*?)(?=\n\*\*|\n##|$)/);
+  if (precondBlock) {
+    r.preconditions = precondBlock[1].split('\n')
+      .filter(l => l.trim().startsWith('-'))
+      .map(l => l.trim().replace(/^-\s*/, '').trim())
+      .filter(Boolean);
+  }
+
+  const stepsBlock = content.match(/\*\*Test Steps:\*\*\n([\s\S]*?)(?=\n\*\*|\n##|$)/);
+  if (stepsBlock) {
+    r.steps = stepsBlock[1].split('\n')
+      .filter(l => l.trim().startsWith('|') && !/^\s*\|[\s|:-]+\|\s*$/.test(l))
+      .slice(1)
+      .map(row => {
+        const cols = row.split('|').slice(1,-1).map(c => c.trim());
+        return { step: cols[0]||'', action: cols[1]||'', expected: cols[2]||'' };
+      })
+      .filter(s => s.action);
+  }
+
+  const om = content.match(/\*\*Expected Outcome:\*\*\s*([^\n]+(?:\n(?!\*\*|\n##)[^\n]+)*)/);
+  if (om) r.expectedOutcome = om[1].trim();
+
+  return r;
+}
+
+function buildCardInnerHTML(item, idx) {
+  const prefix = ITEM_PREFIX[selectedType] || 'TC';
+  const isStructured = ['TEST_CASES', 'NEGATIVE_TEST_CASES'].includes(selectedType);
+  const d = isStructured ? parseCardDetails(item.content) : null;
+
+  let html = `
+    <div class="flex items-start justify-between gap-3">
+      <div class="flex items-center gap-2 flex-wrap flex-1 min-w-0">
+        <span class="text-teal font-mono font-bold text-xs bg-teal/10 px-2 py-0.5 rounded shrink-0">${prefix}-${item.num}</span>
+        <span class="text-white font-semibold text-sm leading-snug">${escHtml(item.title)}</span>
+      </div>
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button id="edit-btn-${idx}" onclick="editCard(${idx})"
+          class="px-2.5 py-1.5 bg-slate-600/50 hover:bg-slate-600 text-slate-300 text-xs font-medium rounded-lg transition">
+          Edit
+        </button>
+        <button id="push-btn-${idx}" onclick="pushCard(${idx})"
+          class="px-3 py-1.5 bg-purple/60 hover:bg-purple/80 text-white text-xs font-bold rounded-lg transition whitespace-nowrap">
+          Push
+        </button>
+      </div>
+    </div>
+    <div id="push-msg-${idx}" class="text-xs hidden"></div>
+  `;
+
+  if (d) {
+    if (d.priority || d.testType) {
+      html += `<div class="flex items-center gap-2 flex-wrap">`;
+      if (d.priority) html += `<span class="text-xs px-2 py-0.5 rounded-full font-semibold ${priorityClasses(d.priority)}">${escHtml(d.priority)}</span>`;
+      if (d.testType) html += `<span class="text-xs px-2 py-0.5 rounded-full ${typeClasses(d.testType)}">${escHtml(d.testType)}</span>`;
+      html += `</div>`;
+    }
+
+    if (d.preconditions.length > 0) {
+      html += `
+        <div>
+          <div class="text-xs text-slate-500 mb-1.5">Preconditions</div>
+          <ul class="space-y-1 pl-3 border-l-2 border-slate-700/50">
+            ${d.preconditions.map((p, pi) => `
+              <li class="flex items-start gap-1.5">
+                <span class="text-slate-600 text-xs mt-1.5">-</span>
+                <input type="text" data-precond="${pi}"
+                  class="precond-input flex-1 text-xs bg-transparent border-b border-transparent hover:border-slate-600/50 focus:border-teal/40 text-slate-400 focus:text-slate-200 outline-none py-0.5 transition"
+                  value="${escHtml(p)}">
+              </li>`).join('')}
+          </ul>
+        </div>`;
+    }
+
+    if (d.steps.length > 0) {
+      html += `
+        <div class="overflow-x-auto rounded-lg border border-slate-700/40">
+          <table class="w-full text-xs border-collapse">
+            <thead class="bg-slate-800/60">
+              <tr class="text-slate-500 text-left">
+                <th class="px-3 py-2 font-medium w-8">#</th>
+                <th class="px-3 py-2 font-medium">Action</th>
+                <th class="px-3 py-2 font-medium">Expected Result</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${d.steps.map(s => `
+                <tr class="border-t border-slate-700/30 hover:bg-slate-700/20">
+                  <td class="px-3 py-2 text-slate-600 font-mono">${escHtml(s.step)}</td>
+                  <td class="px-3 py-2 text-slate-300">${escHtml(s.action)}</td>
+                  <td class="px-3 py-2 text-slate-400">${escHtml(s.expected)}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    }
+
+    if (d.expectedOutcome) {
+      html += `
+        <div class="bg-teal/5 border border-teal/20 rounded-lg px-3 py-2">
+          <span class="text-xs text-teal/70 font-medium">Expected Outcome: </span>
+          <span class="text-xs text-slate-300">${escHtml(d.expectedOutcome)}</span>
+        </div>`;
+    }
+  } else {
+    html += `
+      <details>
+        <summary class="text-xs text-slate-500 hover:text-slate-300 cursor-pointer transition select-none">▸ Show content</summary>
+        <pre class="mt-2 text-slate-400 text-xs whitespace-pre-wrap leading-relaxed border-t border-slate-700/50 pt-2 overflow-x-auto">${escHtml(item.content)}</pre>
+      </details>`;
+  }
+
+  return html;
+}
+
+function renderCards(items) {
+  const container = document.getElementById('cards-container');
+  container.innerHTML = '';
+
+  items.forEach((item, idx) => {
+    const div = document.createElement('div');
+    div.id = `tc-card-${idx}`;
+    div.className = 'bg-slate-700/30 border border-slate-600/50 rounded-xl p-4 space-y-3';
+    div.innerHTML = buildCardInnerHTML(item, idx);
+    container.appendChild(div);
+  });
+
+  document.getElementById('output-text').classList.add('hidden');
+  document.getElementById('cards-container').classList.remove('hidden');
+  document.getElementById('batch-count').textContent = items.length;
+  document.getElementById('push-all-btn').textContent = `✓ Push All ${items.length} items to Xray`;
+  document.getElementById('xray-single-fields').classList.add('hidden');
+  document.getElementById('xray-batch-fields').classList.remove('hidden');
+}
+
+function editCard(idx) {
+  const card = document.getElementById(`tc-card-${idx}`);
+  const item = parsedItems[idx];
+  card._origHTML = card.innerHTML;
+  const prefix = ITEM_PREFIX[selectedType] || 'TC';
+
+  card.innerHTML = `
+    <div class="space-y-2">
+      <div class="flex items-center justify-between gap-2">
+        <span class="text-teal font-mono font-bold text-xs bg-teal/10 px-2 py-0.5 rounded">${prefix}-${item.num}</span>
+        <div class="flex items-center gap-1.5">
+          <button onclick="saveEdit(${idx})" class="px-3 py-1.5 bg-teal/80 hover:bg-teal text-navy text-xs font-bold rounded-lg transition">Save</button>
+          <button onclick="cancelEdit(${idx})" class="px-2.5 py-1.5 bg-slate-600/50 hover:bg-slate-600 text-slate-300 text-xs rounded-lg transition">Cancel</button>
+        </div>
+      </div>
+      <textarea id="edit-textarea-${idx}"
+        class="w-full h-64 bg-slate-900/50 border border-slate-600/50 rounded-lg p-3 text-xs text-slate-200 font-mono leading-relaxed resize-y focus:outline-none focus:border-teal/50"
+      >${escHtml(item.content)}</textarea>
+    </div>
+  `;
+}
+
+function cancelEdit(idx) {
+  const card = document.getElementById(`tc-card-${idx}`);
+  card.innerHTML = card._origHTML;
+}
+
+function saveEdit(idx) {
+  const textarea = document.getElementById(`edit-textarea-${idx}`);
+  const newContent = textarea.value;
+  parsedItems[idx].content = newContent;
+
+  const titleMatch = newContent.match(/^##[^\n]+:\s*(.+)$/m);
+  if (titleMatch) parsedItems[idx].title = titleMatch[1].trim();
+
+  const card = document.getElementById(`tc-card-${idx}`);
+  card.innerHTML = buildCardInnerHTML(parsedItems[idx], idx);
+
+  if (parsedItems[idx].pushed && parsedItems[idx].jiraKey) {
+    const btn = document.getElementById(`push-btn-${idx}`);
+    if (btn) {
+      btn.textContent = '✓';
+      btn.className = btn.className.replace('bg-purple/60 hover:bg-purple/80', 'bg-emerald-700/40 cursor-default');
+      btn.disabled = true;
+    }
+    const msgEl = document.getElementById(`push-msg-${idx}`);
+    if (msgEl) {
+      const url = jiraBaseUrl ? `${jiraBaseUrl}/browse/${parsedItems[idx].jiraKey}` : '#';
+      msgEl.innerHTML = `<a href="${url}" target="_blank" class="text-teal underline">${parsedItems[idx].jiraKey}</a> created`;
+      msgEl.className = 'text-xs text-emerald-400';
+      msgEl.classList.remove('hidden');
+    }
+  }
+}
+
+// Status badge colours
+function statusClass(s) {
+  const m = {'To Do':'text-slate-400 bg-slate-700/50','In Progress':'text-blue-300 bg-blue-900/30','Done':'text-emerald-400 bg-emerald-900/30'};
+  return m[s] || 'text-slate-400 bg-slate-700/50';
+}
+
+// Load issue details on page load
+(async function loadIssue() {
+  try {
+    const r = await fetch(`/api/jira/issue/${ISSUE_KEY}`);
+    if (!r.ok) {
+      const d = await r.json();
+      throw new Error(d.detail || 'Failed to load issue');
+    }
+    issueData = await r.json();
+
+    // Breadcrumb
+    document.getElementById('bc-project').href        = `/projects/${issueData.project_key}/stories`;
+    document.getElementById('bc-project').textContent = issueData.project_key;
+    document.getElementById('bc-backlog').href        = `/projects/${issueData.project_key}/stories`;
+    document.getElementById('bc-backlog').textContent = 'Backlog';
+
+    // Issue card
+    document.getElementById('issue-summary').textContent     = issueData.summary;
+    document.getElementById('issue-description').textContent = issueData.description || '(no description)';
+    document.getElementById('issue-type-badge').textContent  = issueData.issue_type;
+
+    const sb = document.getElementById('issue-status-badge');
+    sb.textContent = issueData.status;
+    sb.className   = 'text-xs px-2 py-0.5 rounded font-medium ' + statusClass(issueData.status);
+
+    // Pre-fill Xray project
+    document.getElementById('xray-project').value = issueData.project_key || '';
+
+    document.getElementById('issue-loading').classList.add('hidden');
+    document.getElementById('issue-content').classList.remove('hidden');
+
+  } catch(e) {
+    document.getElementById('issue-loading').classList.add('hidden');
+    const err = document.getElementById('issue-error');
+    err.textContent = '⚠ ' + e.message;
+    err.classList.remove('hidden');
+  }
+})();
+
+function selectType(btn) {
+  document.querySelectorAll('.type-btn').forEach(b => {
+    b.classList.remove('border-teal/60','bg-teal/10','text-teal');
+    b.classList.add('bg-slate-700/40','text-slate-300','border-slate-700/50');
+  });
+  btn.classList.remove('bg-slate-700/40','text-slate-300','border-slate-700/50');
+  btn.classList.add('border-teal/60','bg-teal/10','text-teal');
+  selectedType = btn.dataset.key;
+  const supportsQty = btn.dataset.supportsQty === 'true';
+  document.getElementById('qty-row').classList.toggle('hidden', !supportsQty);
+  const groupCb = document.getElementById('group-test-set');
+  if (groupCb) groupCb.checked = (selectedType === 'TEST_CASES');
+}
+
+function adjustQty(delta) {
+  quantity = Math.min(20, Math.max(1, quantity + delta));
+  document.getElementById('qty-display').textContent = quantity;
+}
+
+async function startGeneration() {
+  if (!selectedType) { alert('Select a generation type first.'); return; }
+  if (!issueData)    { alert('Issue is still loading, please wait.'); return; }
+
+  const inputText = [
+    `Issue: ${ISSUE_KEY} — ${issueData.summary}`,
+    issueData.description ? `\n${issueData.description}` : ''
+  ].join('').trim();
+
+  // Reset state
+  fullOutput   = '';
+  parsedItems  = [];
+
+  // UI: reset to loading state
+  document.getElementById('empty-state').classList.add('hidden');
+  document.getElementById('output-content').classList.add('hidden');
+  document.getElementById('xray-section').classList.add('hidden');
+  document.getElementById('copy-btn').classList.add('hidden');
+  document.getElementById('download-btn').classList.add('hidden');
+  document.getElementById('output-badge').classList.add('hidden');
+  document.getElementById('stream-state').classList.remove('hidden');
+  document.getElementById('stream-label').textContent = 'Generating…';
+
+  // Reset output area
+  document.getElementById('output-text').classList.remove('hidden');
+  document.getElementById('output-text').textContent = '';
+  document.getElementById('cards-container').classList.add('hidden');
+  document.getElementById('cards-container').innerHTML = '';
+
+  // Reset xray section to single mode (will switch if batch)
+  document.getElementById('xray-single-fields').classList.remove('hidden');
+  document.getElementById('xray-batch-fields').classList.add('hidden');
+  document.getElementById('xray-msg').textContent = '';
+  document.getElementById('xray-batch-msg').textContent = '';
+
+  const btn = document.getElementById('generate-btn');
+  btn.disabled = true;
+  document.getElementById('btn-label').textContent = 'Generating…';
+
+  const outputEl = document.getElementById('output-text');
+
+  try {
+    const resp = await fetch('/api/generate/stream', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        generation_type: selectedType,
+        input_text: inputText,
+        quantity: quantity,
+      })
+    });
+
+    if (!resp.ok) {
+      throw new Error(await readError(resp));
+    }
+
+    const reader  = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    document.getElementById('stream-state').classList.add('hidden');
+    document.getElementById('output-content').classList.remove('hidden');
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const payload = line.slice(6);
+        if (payload === '[DONE]') break;
+        if (payload.startsWith('[ERROR]')) {
+          outputEl.textContent += '\n' + payload.slice(7).trim();
+          break;
+        }
+        const chunk = payload.replace(/\\n/g, '\n');
+        fullOutput += chunk;
+        outputEl.textContent = fullOutput;
+      }
+    }
+
+    // Generation complete — try to parse into cards for batch types
+    const supportsQty = document.querySelector(`.type-btn[data-key="${selectedType}"]`)?.dataset?.supportsQty === 'true';
+    if (supportsQty && ITEM_PATTERNS[selectedType]) {
+      const items = parseBatchItems(fullOutput, selectedType);
+      if (items && items.length > 0) {
+        parsedItems = items;
+        renderCards(items);
+      }
+    }
+
+    // If not in card view, pre-fill the single-doc summary
+    if (parsedItems.length === 0) {
+      const label = document.querySelector(`.type-btn[data-key="${selectedType}"]`)?.querySelector('span:last-child')?.textContent || selectedType;
+      document.getElementById('xray-summary').value = `${label}: ${issueData.summary}`.slice(0, 200);
+    }
+
+    // Badge and action buttons
+    const badge = document.getElementById('output-badge');
+    badge.textContent = parsedItems.length > 0
+      ? `✓ ${parsedItems.length} items`
+      : '✓ Generated';
+    badge.classList.remove('hidden');
+    document.getElementById('copy-btn').classList.remove('hidden');
+    document.getElementById('download-btn').classList.remove('hidden');
+    if (parsedItems.length > 0) {
+      document.getElementById('csv-test-set-key').classList.remove('hidden');
+      if (createdTestSetKey) document.getElementById('csv-test-set-key').value = createdTestSetKey;
+    }
+    document.getElementById('xray-section').classList.remove('hidden');
+
+  } catch(e) {
+    document.getElementById('stream-state').classList.add('hidden');
+    document.getElementById('output-content').classList.remove('hidden');
+    outputEl.textContent = '⚠ Error: ' + e.message;
+  } finally {
+    btn.disabled = false;
+    document.getElementById('btn-label').textContent = 'Regenerate';
+    document.getElementById('btn-icon').textContent  = '↺';
+  }
+}
+
+// Return item.content with any in-card precondition edits applied
+function getEffectiveContent(idx) {
+  const item = parsedItems[idx];
+  const card = document.getElementById(`tc-card-${idx}`);
+  if (!card) return item.content;
+  const inputs = card.querySelectorAll('.precond-input');
+  if (!inputs.length) return item.content;
+  const precs = Array.from(inputs).map(i => i.value.trim()).filter(Boolean);
+  const newBlock = '**Preconditions:**\n' + precs.map(p => `- ${p}`).join('\n');
+  const updated = item.content.replace(/\*\*Preconditions:\*\*\n[\s\S]*?(?=\n\*\*|\n##|$)/, newBlock + '\n');
+  return updated !== item.content ? updated : item.content;
+}
+
+// Push a single card by index
+async function pushCard(idx, projectKeyOverride) {
+  const projectKey = (projectKeyOverride || document.getElementById('xray-project').value.trim()).toUpperCase();
+  if (!projectKey) { alert('Enter a project key first.'); return; }
+
+  const item  = parsedItems[idx];
+  if (!item || item.pushed) return;
+
+  const btn   = document.getElementById(`push-btn-${idx}`);
+  const msgEl = document.getElementById(`push-msg-${idx}`);
+  const prefix = ITEM_PREFIX[selectedType] || 'TC';
+  const summary = `${prefix}-${item.num}: ${item.title}`.slice(0, 200);
+
+  btn.disabled = true;
+  btn.textContent = '…';
+  msgEl.textContent = 'Pushing…';
+  msgEl.className = 'text-xs text-slate-400';
+  msgEl.classList.remove('hidden');
+
+  try {
+    const r = await fetch('/api/jira/push-xray', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        project_key: projectKey,
+        summary:     summary,
+        content:     getEffectiveContent(idx),
+        linked_issue_key: ISSUE_KEY,
+      })
+    });
+    if (!r.ok) {
+      msgEl.textContent = '✗ ' + (await readError(r));
+      msgEl.className   = 'text-xs text-red-400';
+      btn.textContent   = 'Retry';
+      btn.disabled      = false;
+    } else {
+      const data = await r.json();
+      item.pushed = true;
+      item.jiraKey = data.key;
+      item.jiraId  = data.id || '';   // numeric ID for Xray Cloud v2
+      if (data.url && data.url.includes('/browse/')) jiraBaseUrl = data.url.split('/browse/')[0];
+      btn.textContent = '✓';
+      btn.className   = btn.className.replace('bg-purple/60 hover:bg-purple/80', 'bg-emerald-700/40 cursor-default');
+      btn.disabled    = true;
+      msgEl.innerHTML = `<a href="${data.url}" target="_blank" class="text-teal underline">${data.key}</a> created`;
+      msgEl.className = 'text-xs text-emerald-400';
+    }
+  } catch(e) {
+    msgEl.textContent = '✗ Connection error';
+    msgEl.className   = 'text-xs text-red-400';
+    btn.textContent   = 'Retry';
+    btn.disabled      = false;
+  }
+}
+
+// Push all unpushed cards sequentially, optionally grouped into a Test Set
+async function pushAllCards() {
+  const projectKey = document.getElementById('xray-project').value.trim().toUpperCase();
+  if (!projectKey) { alert('Enter a project key first.'); return; }
+
+  const btn    = document.getElementById('push-all-btn');
+  const msgEl  = document.getElementById('xray-batch-msg');
+  const unpushed = parsedItems.filter(item => !item.pushed);
+
+  if (unpushed.length === 0) {
+    msgEl.textContent = 'All items already pushed.';
+    msgEl.className   = 'text-xs text-slate-400';
+    return;
+  }
+
+  btn.disabled = true;
+
+  // Optionally create a Test Set first
+  const groupIntoSet = document.getElementById('group-test-set')?.checked;
+  let testSetKey = null;
+
+  if (groupIntoSet) {
+    msgEl.textContent = 'Creating Test Set…';
+    msgEl.className   = 'text-xs text-slate-400';
+    try {
+      const label = document.querySelector(`.type-btn[data-key="${selectedType}"]`)?.querySelector('span:last-child')?.textContent || selectedType;
+      const setTitle = `TS: ${issueData?.summary || ISSUE_KEY}`.slice(0, 200);
+      const r = await fetch('/api/jira/push-test-set', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ project_key: projectKey, summary: setTitle, linked_issue_key: ISSUE_KEY }),
+      });
+      if (r.ok) {
+        const data = await r.json();
+        testSetKey = data.key;
+        testSetId  = data.id || '';   // numeric ID for Xray Cloud v2
+        createdTestSetKey = data.key;
+        // Auto-fill the CSV Test Set key field so the downloaded CSV is ready
+        const csvKeyEl = document.getElementById('csv-test-set-key');
+        if (csvKeyEl && !csvKeyEl.value) csvKeyEl.value = data.key;
+        if (data.url && data.url.includes('/browse/')) jiraBaseUrl = data.url.split('/browse/')[0];
+        msgEl.textContent = `Test Set ${testSetKey} created — pushing tests…`;
+      } else {
+        msgEl.textContent = `Warning: Test Set creation failed — pushing tests without grouping.`;
+        msgEl.className   = 'text-xs text-amber-400';
+      }
+    } catch(e) {
+      msgEl.textContent = `Warning: Test Set creation failed — pushing tests without grouping.`;
+      msgEl.className   = 'text-xs text-amber-400';
+    }
+  }
+
+  // Push each unpushed card
+  let done = 0;
+  for (let i = 0; i < parsedItems.length; i++) {
+    if (parsedItems[i].pushed) continue;
+    btn.textContent = `Pushing ${done + 1} / ${unpushed.length}…`;
+    await pushCard(i, projectKey);
+    done++;
+  }
+
+  // Link all successfully pushed tests to the Test Set
+  if (testSetKey) {
+    const pushedKeys = parsedItems.filter(item => item.pushed && item.jiraKey).map(item => item.jiraKey);
+    if (pushedKeys.length > 0) {
+      try {
+        msgEl.textContent = `Linking ${pushedKeys.length} test(s) to ${testSetKey}…`;
+        msgEl.className   = 'text-xs text-slate-400';
+        const pushedIds = parsedItems.filter(item => item.pushed && item.jiraId).map(item => item.jiraId);
+        await fetch('/api/jira/link-tests-to-set', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            test_set_key: testSetKey,
+            test_keys: pushedKeys,
+            test_set_id: testSetId,
+            test_ids: pushedIds,
+          }),
+        });
+      } catch(e) { /* best-effort */ }
+    }
+  }
+
+  const failed = parsedItems.filter(item => !item.pushed).length;
+  if (failed === 0) {
+    btn.textContent = testSetKey ? `✓ All ${parsedItems.length} pushed → ${testSetKey}` : `✓ All ${parsedItems.length} pushed`;
+    const boardUrl = boardLink(projectKey);
+    let successHtml = boardUrl
+      ? `Done — <a href="${boardUrl}" target="_blank" class="text-teal underline font-semibold">open your Xray board ↗</a>`
+      : 'Done — check your Xray board.';
+    if (testSetKey && jiraBaseUrl) {
+      successHtml += ` · <a href="${jiraBaseUrl}/browse/${testSetKey}" target="_blank" class="text-teal underline">Test Set ${testSetKey} ↗</a>`;
+    }
+    msgEl.innerHTML = successHtml;
+    msgEl.className  = 'text-xs text-emerald-400';
+  } else {
+    btn.textContent = `Push remaining (${failed} failed)`;
+    btn.disabled    = false;
+    msgEl.textContent = `${failed} item(s) failed — check the error messages above.`;
+    msgEl.className   = 'text-xs text-red-400';
+  }
+}
+
+// Single-doc push (non-batch types: Test Plan, Defect Report, etc.)
+async function pushSingleDoc() {
+  const projectKey = document.getElementById('xray-project').value.trim().toUpperCase();
+  const summary    = document.getElementById('xray-summary').value.trim();
+  const msgEl      = document.getElementById('xray-msg');
+
+  if (!projectKey) { alert('Enter a project key.'); return; }
+  if (!summary)    { alert('Enter a test title.'); return; }
+  if (!fullOutput) { alert('Nothing to push — generate first.'); return; }
+
+  msgEl.textContent = 'Pushing…';
+  msgEl.className   = 'text-xs text-slate-400';
+
+  try {
+    const r = await fetch('/api/jira/push-xray', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        project_key: projectKey,
+        summary:     summary,
+        content:     fullOutput,
+        linked_issue_key: ISSUE_KEY,
+      })
+    });
+    if (!r.ok) {
+      msgEl.textContent = '✗ ' + (await readError(r));
+      msgEl.className   = 'text-xs text-red-400';
+    } else {
+      const data = await r.json();
+      msgEl.innerHTML = `✓ Created <a href="${data.url}" target="_blank" class="text-teal underline font-semibold">${data.key}</a> in Xray (${data.issue_type})`;
+      msgEl.className = 'text-xs text-emerald-400';
+    }
+  } catch(e) {
+    msgEl.textContent = '✗ Connection error';
+    msgEl.className   = 'text-xs text-red-400';
+  }
+}
+
+function copyOutput() {
+  if (fullOutput) navigator.clipboard.writeText(fullOutput).then(() => {
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy', 2000);
+  });
+}
+
+function _downloadBlob(content, filename, mimeType) {
+  const blob = new Blob([content], {type: mimeType});
+  const a    = document.createElement('a');
+  a.href     = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function downloadOutput(fmt) {
+  if (!fullOutput) return;
+  const label = selectedType ? selectedType.toLowerCase().replace(/_/g, '-') : 'output';
+
+  if (fmt === 'txt') {
+    _downloadBlob(fullOutput, `${ISSUE_KEY}-${label}.txt`, 'text/plain');
+    return;
+  }
+
+  if (fmt === 'json') {
+    let obj;
+    if (parsedItems.length > 0) {
+      const isStructured = ['TEST_CASES', 'NEGATIVE_TEST_CASES'].includes(selectedType);
+      obj = parsedItems.map(item => {
+        const base = { id: `${ITEM_PREFIX[selectedType]||'TC'}-${item.num}`, title: item.title, content: item.content };
+        if (isStructured) {
+          const d = parseCardDetails(item.content);
+          return { ...base, priority: d.priority, testType: d.testType, preconditions: d.preconditions, steps: d.steps, expectedOutcome: d.expectedOutcome };
+        }
+        return base;
+      });
+    } else {
+      obj = { type: selectedType, issueKey: ISSUE_KEY, content: fullOutput };
+    }
+    _downloadBlob(JSON.stringify(obj, null, 2), `${ISSUE_KEY}-${label}.json`, 'application/json');
+    return;
+  }
+
+  if (fmt === 'csv') {
+    const csvSetKey = document.getElementById('csv-test-set-key')?.value.trim() || createdTestSetKey;
+    let csv;
+    if (parsedItems.length > 0 && ['TEST_CASES', 'NEGATIVE_TEST_CASES'].includes(selectedType)) {
+      const rows = [['Test Set', 'ID', 'Title', 'Priority', 'Test Type', 'Preconditions', 'Steps', 'Expected Outcome']];
+      parsedItems.forEach(item => {
+        const d = parseCardDetails(item.content);
+        const prefix = ITEM_PREFIX[selectedType] || 'TC';
+        rows.push([
+          csvSetKey,
+          `${prefix}-${item.num}`,
+          item.title,
+          d.priority,
+          d.testType,
+          d.preconditions.join('; '),
+          d.steps.map(s => `${s.step}. ${s.action} → ${s.expected}`).join(' | '),
+          d.expectedOutcome,
+        ]);
+      });
+      csv = rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+    } else if (parsedItems.length > 0) {
+      const rows = [['Test Set', 'ID', 'Title', 'Content']];
+      parsedItems.forEach(item => {
+        const prefix = ITEM_PREFIX[selectedType] || 'TC';
+        rows.push([csvSetKey, `${prefix}-${item.num}`, item.title, item.content]);
+      });
+      csv = rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');
+    } else {
+      csv = `"Type","Issue Key","Content"\n"${selectedType}","${ISSUE_KEY}","${fullOutput.replace(/"/g, '""')}"`;
+    }
+    _downloadBlob(csv, `${ISSUE_KEY}-${label}.csv`, 'text/csv');
+    return;
+  }
+}
+</script>
+{% endblock %}

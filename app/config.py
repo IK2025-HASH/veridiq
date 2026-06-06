@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "change-me-in-production"
 
     ANTHROPIC_API_KEY: str = ""
-    ANTHROPIC_MODEL: str = "claude-sonnet-4-20250514"
+    ANTHROPIC_MODEL: str = "claude-sonnet-4-6"
     MAX_TOKENS: int = 4096
 
     # SQLite by default (local) — Railway injects a real PostgreSQL URL automatically
