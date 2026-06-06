@@ -404,40 +404,43 @@ class JiraClient:
         steps: list,
         xray_hdrs: dict,
     ) -> bool:
-        """Push test steps via Xray Cloud v2 GraphQL API (primary method for Cloud)."""
-        step_inputs = [{"action": s["action"], "data": "", "result": s["expected"]} for s in steps]
-
-        # Try different input type names — Xray Cloud schema varies
-        for input_type in ["UpdateStepInput", "StepInput", "CreateStepInput"]:
+        """Push test steps via Xray Cloud v2 GraphQL addTestStep mutation (one call per step)."""
+        # Xray Cloud v2 GraphQL: addTestStep(issueId, step: CreateStepInput!) per step
+        gql_template = (
+            "mutation AddStep($issueId:String!,$step:CreateStepInput!)"
+            "{addTestStep(issueId:$issueId,step:$step){id action result}}"
+        )
+        pushed = 0
+        for s in steps:
             gql = {
-                "query": (
-                    f"mutation UpdateSteps($issueId:String!,$steps:[{input_type}]!)"
-                    f"{{updateTestSteps(issueId:$issueId,steps:$steps){{issueId}}}}"
-                ),
-                "variables": {"issueId": issue_id, "steps": step_inputs},
+                "query": gql_template,
+                "variables": {
+                    "issueId": issue_id,
+                    "step": {"action": s["action"], "data": "", "result": s["expected"]},
+                },
             }
             try:
-                r = await client.post(
-                    f"{XRAY_CLOUD_BASE}/graphql", headers=xray_hdrs, json=gql
-                )
+                r = await client.post(f"{XRAY_CLOUD_BASE}/graphql", headers=xray_hdrs, json=gql)
                 logger.info(
-                    f"Xray GraphQL updateTestSteps({input_type}) issueId={issue_id}: "
-                    f"{r.status_code} {r.text[:400]}"
+                    f"Xray GraphQL addTestStep issueId={issue_id} step={pushed+1}: "
+                    f"{r.status_code} {r.text[:300]}"
                 )
                 if r.is_success:
                     resp = r.json()
-                    errors = resp.get("errors", [])
-                    if not errors:
-                        return True
-                    first_msg = (errors[0].get("message") or "").lower()
-                    if "unknown type" in first_msg or "does not exist" in first_msg:
-                        continue  # wrong input type name — try next
-                    logger.warning(f"Xray GraphQL errors: {errors[:2]}")
+                    if not resp.get("errors"):
+                        pushed += 1
+                        continue
+                    logger.warning(f"Xray GraphQL addTestStep errors: {resp['errors'][:2]}")
+                    return False
+                else:
+                    logger.warning(f"Xray GraphQL addTestStep HTTP {r.status_code}: {r.text[:300]}")
                     return False
             except Exception as e:
-                logger.warning(f"Xray GraphQL exception: {e}")
+                logger.warning(f"Xray GraphQL addTestStep exception: {e}")
+                return False
 
-        return False
+        logger.info(f"Xray GraphQL addTestStep: pushed {pushed}/{len(steps)} steps to issueId={issue_id}")
+        return pushed == len(steps)
 
     async def _push_xray_steps(
         self,
@@ -465,53 +468,8 @@ class JiraClient:
         xray_hdrs = self._xray_headers(token)
         logger.info(f"Xray v2 pushing {len(steps)} step(s) to {issue_key} (issueId={issue_id})")
 
-        # Primary: GraphQL API (Xray Cloud REST /test/{id}/steps is not available on all plans)
-        if await self._push_steps_graphql(client, issue_id, steps, xray_hdrs):
-            return True
-
-        # Fallback: REST API with retries (handles race condition where Xray async-processes new tests)
-        plain = [{"action": s["action"], "data": "", "result": s["expected"]} for s in steps]
-        delays = [0, 5, 15, 30]
-        for attempt, delay in enumerate(delays, 1):
-            if delay:
-                logger.info(f"Xray REST steps retry {attempt}/{len(delays)} for {issue_key} (waiting {delay}s)")
-                await asyncio.sleep(delay)
-
-            for bulk_body in [plain, {"steps": plain}]:
-                try:
-                    r = await client.put(
-                        f"{XRAY_CLOUD_BASE}/test/{issue_id}/steps",
-                        headers=xray_hdrs,
-                        json=bulk_body,
-                    )
-                    logger.info(f"Xray REST PUT /steps {issue_key}({issue_id}) attempt {attempt}: {r.status_code} {r.text[:400]}")
-                    if r.is_success:
-                        return True
-                    if r.status_code not in (404, 429):
-                        break
-                except Exception as e:
-                    logger.warning(f"Xray REST PUT /steps exception: {e}")
-
-        # Last resort: v1 endpoint (Server/DC only — expected 404 on Cloud)
-        success = 0
-        for s in steps:
-            for body in [
-                {"step": s["action"], "data": "", "result": s["expected"]},
-                {"action": s["action"], "data": "", "result": s["expected"]},
-            ]:
-                try:
-                    r = await client.post(
-                        f"{self.base_url}/rest/raven/1.0/api/test/{issue_key}/step",
-                        headers=self._headers,
-                        json=body,
-                    )
-                    logger.info(f"Xray v1 step {issue_key}: {r.status_code} {r.text[:200]}")
-                    if r.is_success:
-                        success += 1
-                        break
-                except Exception as e:
-                    logger.warning(f"Xray v1 step exception: {e}")
-        return success == len(steps)
+        # GraphQL API — the only working method for this Xray Cloud plan
+        return await self._push_steps_graphql(client, issue_id, steps, xray_hdrs)
 
     async def create_xray_test(
         self,
