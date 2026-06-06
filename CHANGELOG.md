@@ -8,6 +8,55 @@ of them: `git fetch origin <branch> && git reset --hard origin/<branch>`.
 
 ---
 
+## [1.1.0] — 2026-06-06 · Xray Cloud v2 Full Integration (PR #1)
+
+**Branch:** `claude/confident-maxwell-nJkvm` → merged to `main`
+**Closes:** VRD-D015, VRD-D016, VRD-D013
+
+### Added
+- **Xray Cloud v2 GraphQL — test steps:** Each AI-generated step is pushed to the
+  Xray Test Details tab via `addTestStep(issueId, step: CreateStepInput!)` GraphQL
+  mutation (one call per step). Diagnostic confirmed REST endpoints
+  `PUT /api/v2/test/{id}/steps` return `404 Cannot PUT` on this Cloud plan — GraphQL
+  is the correct path for Xray Cloud.
+- **Xray Cloud v2 GraphQL — preconditions:** Each precondition bullet creates its own
+  Xray Pre-Condition issue via `createPrecondition` GraphQL mutation, then all are
+  linked to the test via `addPreconditionsToTest`. One row per precondition in the
+  Xray Preconditions tab.
+- **Xray Cloud v2 GraphQL — test sets:** Tests linked to their Test Set via
+  `addTestsToTestSet` GraphQL mutation during Push All flow.
+- **Xray Cloud v2 authentication:** `POST /authenticate` → Bearer JWT cached per
+  JiraClient instance. Client ID + Client Secret configured in Admin → Settings.
+- **Preconditions editable inline:** Each precondition in the card UI is now an
+  `<input>` field (was read-only `<li>`). Edits are captured before pushing via
+  `getEffectiveContent()` which rebuilds the markdown before sending to the server.
+- **Issue naming prefixes:** All Veridiq-created Jira issues now have type-identifying
+  prefixes — `TC-N` (test cases), `NTC-N` (negative tests), `BDD-N`, `EC-N`
+  (exploratory charters), `PC-N` (preconditions), `TS:` (test sets).
+- **Backlog Story filter:** JQL now uses `issuetype = Story` — Xray issue types
+  (Test, Test Set, Pre-Condition) no longer clutter the backlog list.
+- **Rate limit fix:** Authenticated users get 10,000 generations/day (callable limit
+  function via slowapi 0.1.9). Anonymous users keep the configured daily cap.
+- **AI model corrected:** `claude-sonnet-4-6` used consistently in config and admin UI.
+- **CSV Test Set key auto-fill:** After Push All creates a Test Set, the key is
+  automatically populated in the CSV download field.
+
+### Fixed
+- VRD-D015 — Steps not appearing in Xray Test Details. **Verified** (APR-61, APR-63,
+  APR-64: all steps populated via GraphQL `addTestStep`).
+- VRD-D016 — Tests tab empty in Xray Test Set. **Verified** (`addTestsToTestSet`
+  GraphQL correctly links tests to the Test Set during Push All).
+- VRD-D013 — README / docs out of date. **Updated** (this release).
+
+### Technical notes
+- All three Xray Cloud v2 operations (steps, preconditions, test sets) use the GraphQL
+  endpoint `https://xray.cloud.getxray.app/api/v2/graphql` with Bearer JWT auth.
+- REST fallbacks removed from step push (confirmed 404 on all attempts); REST fallbacks
+  retained for test set linking as belt-and-braces.
+- `asyncio` import added to `jira_client.py` (was missing for `asyncio.sleep`).
+
+---
+
 ## [1.7.x] — 2026-06-05 · Test Set, Inline Edit, Download Formats, Xray Step API
 
 ### Added

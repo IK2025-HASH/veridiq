@@ -5,7 +5,7 @@
 > of the code — `README.md` is partly aspirational and does NOT describe what
 > runs today. When in doubt, trust this file and the code over the README.
 
-Last updated: 2026-06-05 · Active branch: `claude/confident-maxwell-nJkvm` · Latest commit: see below (docs update)
+Last updated: 2026-06-06 · Active branch: `claude/confident-maxwell-nJkvm` · Latest release: **v1.1.0** (Xray Cloud v2 GraphQL)
 
 **Companion docs:** `CHANGELOG.md` (release history & freeze branches) · `DEFECTS.md` (defect register) · `TEST_PLAN.md` (what's tested + how to see it) · `BACKLOG.md` (sprint plan)
 
@@ -31,6 +31,7 @@ A web app for QA / test professionals who have their **own** Jira + Xray instanc
 ## 2. Milestones
 
 - **Milestone 1 (✅ complete):** runs locally on Windows (and on-network mobile) with SQLite. Full multi-user auth, DB-backed users, admin panel, Jira/Xray integration, mobile-responsive UI, animated demo, CI pipeline (GitHub Actions), Playwright tests. 48 tests green.
+- **v1.1.0 (✅ complete — 2026-06-06):** Xray Cloud v2 GraphQL integration. Test steps appear in Test Details tab. Each precondition becomes a separate Xray Pre-Condition issue. Tests auto-link inside Test Set. Preconditions editable inline before push. Issue naming prefixes (TC-N, PC-N, TS:, NTC-N, BDD-N, EC-N). Rate limit fix. AI model fix.
 - **Milestone 2 (🚧 blocked — code ready):** Railway + PostgreSQL deployment. `railway.toml` configured; alembic migrations in place. **Blocked by:** Railway trial expired (needs Hobby plan ~$5/month). Resume when plan upgraded.
 
 ---
@@ -74,7 +75,7 @@ Browser: **http://127.0.0.1:8000** (or http://192.168.0.10:8000 from phone on sa
 | Company | Network Logic Limited |
 | Git remote | `IK2025-HASH/veridiq` (GitHub) |
 | Jira instance | ilyaskadri.atlassian.net |
-| Xray installed | ✅ Yes (confirmed — APR-43 Test Set, APR-47 Test issues created this session) |
+| Xray installed | ✅ Yes — Xray Cloud v2 GraphQL confirmed working (steps, preconditions, test sets) |
 | Jira project keys | APR (Abusive Payment Reference), SCRUM (story2testdemo) |
 | Sample story | APR-28 — "Scalability for peak load" |
 | Railway plan | Trial expired — needs Hobby plan ($5/month) before M2 |
@@ -119,6 +120,7 @@ Browser: **http://127.0.0.1:8000** (or http://192.168.0.10:8000 from phone on sa
   - `snapshot/v0.4.0-per-item-xray` — per-item Xray push, 48 tests
   - `sprint/s3-users` — DB-backed users, 2FA, password reset
   - `snapshot/v1.6.0-ux-polish` — Sprint 6 complete (TC cards, mobile nav, CI, empty states)
+  - `snapshot/v1.1.0-xray-graphql` — v1.1.0 major release: Xray Cloud v2 GraphQL (steps + preconditions + test sets)
 - Roll back: `git fetch origin <branch> && git reset --hard origin/<branch>`
 - Tags don't work on this remote (HTTP 403) — use branches instead
 
@@ -131,7 +133,7 @@ git checkout claude/confident-maxwell-nJkvm
 
 ---
 
-## 7. Current feature state (v1.7.x as of 2026-06-05)
+## 7. Current feature state (v1.1.0 as of 2026-06-06)
 
 ### Working ✅
 - **Generate flow:** Projects → Stories → Generate page (`/generate/{issue_key}`)
@@ -140,39 +142,49 @@ git checkout claude/confident-maxwell-nJkvm
 - **Inline card edit:** Edit/Save/Cancel on each TC card; re-parses content after save
 - **Download formats:** Text (plain), CSV (with Test Set column + manual key input), JSON
 - **Push individual card:** Push button per card → creates Xray Test issue + links to story
-- **Push All with Test Set:** creates Test Set issue first → pushes all TCs → links them
-- **Jira issue fields:** Preconditions and expected outcome go to description; steps pushed to Xray Test Details via `POST /rest/raven/1.0/api/test/{key}/step`
-
-### Partially working ⚠️ (next thread should verify and fix)
-- **Test steps in Xray Test Details:** API call is made (`_push_xray_steps`) with both `{"step":...}` and `{"action":...}` formats. **Not yet confirmed working on Xray Cloud** — "There are no steps defined" seen in last test. May need different format or Xray Cloud v2 API. Steps currently appear only in description as fallback.
-- **Tests linking to Test Set:** `add_tests_to_set` tries Xray Server API then Jira issue links with "Tests"/"is member of"/"Relates" types. **Xray Cloud internal relationship (the tab in Test Set)** requires Xray's own data model — standard issue links may not appear in the Tests tab. APR-43 Test Set was empty in last test.
-- **CSV Test Set column:** works when user types the Test Set key in the input field, or if populated automatically after Push All. Manual entry required if test set was pre-created.
+- **Push All with Test Set:** creates Test Set issue first → pushes all TCs → links them (Tests tab populated via GraphQL)
+- **Test steps in Xray Test Details:** each step pushed via `addTestStep` GraphQL mutation — confirmed appearing in Xray Test Details tab ✅
+- **Preconditions as separate Xray issues:** each precondition → one `createPrecondition` GraphQL call → separate Pre-Condition issue in Xray Preconditions tab ✅
+- **Tests linked inside Test Set:** `addTestsToTestSet` GraphQL mutation — Tests tab populated ✅
+- **Preconditions editable inline:** each precondition shown as an editable text input before push; changes reflected in pushed content ✅
+- **Issue naming prefixes:** TC-N (test cases), PC-N (preconditions), TS: (test sets), NTC-N (negative), BDD-N (BDD), EC-N (exploratory) ✅
+- **Backlog Story filter:** Projects → Stories page shows only `issuetype = Story` items ✅
+- **Rate limit fix:** per-user rate limiting (slowapi callable) — authenticated users no longer hit the IP rate limit incorrectly ✅
 
 ### Not yet built ❌
-- Preconditions as proper Xray Precondition issues (they go to description for now)
-- Test Set ↔ Tests tab linking via Xray Cloud API v2 (requires separate Xray API key/token)
 - Regression Pack (sprint-level cross-story TC subset)
+- Test Execution push (create Test Execution from Test issue)
+- Bulk backlog generation (multi-story batch)
 
 ---
 
-## 8. Xray Cloud API — what we know
+## 8. Xray Cloud API — confirmed facts (v1.1.0)
 
 The user's Jira is **ilyaskadri.atlassian.net** (Jira Cloud) with **Xray for Jira Cloud** installed.
 
-| What we want | API endpoint tried | Status |
+**Auth:** `POST https://xray.cloud.getxray.app/api/v2/authenticate` with `{"client_id": ..., "client_secret": ...}` → returns a Bearer JWT string (stored in admin settings, Fernet-encrypted).
+
+**Key fact: REST endpoints return 404 on this Cloud plan. Use GraphQL only.**
+
+| What we want | Working approach | Endpoint |
 |---|---|---|
-| Create Test issue | `POST /rest/api/3/issue` with `issuetype: "Test"` | ✅ Works |
-| Create Test Set | `POST /rest/api/3/issue` with `issuetype: "Test Set"` | ✅ Works |
-| Push test steps | `POST /rest/raven/1.0/api/test/{key}/step` | ⚠️ Returns non-success or silent fail |
-| Link tests to Test Set | `POST /rest/raven/1.0/api/testset/{key}/test` | ⚠️ Silent fail for Cloud |
-| Link via Jira | `POST /rest/api/3/issueLink` with type "Tests" | ⚠️ Creates a link but may not appear in Tests tab |
+| Create Test issue | Jira REST API | `POST /rest/api/3/issue` with `issuetype: "Test"` ✅ |
+| Create Test Set | Jira REST API | `POST /rest/api/3/issue` with `issuetype: "Test Set"` ✅ |
+| Push test steps | GraphQL `addTestStep` (one call per step) | `POST https://xray.cloud.getxray.app/api/v2/graphql` ✅ |
+| Create Precondition issue | GraphQL `createPrecondition` | `POST https://xray.cloud.getxray.app/api/v2/graphql` ✅ |
+| Link preconditions to test | GraphQL `addPreconditionsToTest` | `POST https://xray.cloud.getxray.app/api/v2/graphql` ✅ |
+| Link tests to Test Set | GraphQL `addTestsToTestSet` | `POST https://xray.cloud.getxray.app/api/v2/graphql` ✅ |
+| Push test steps (REST) | `PUT /api/v2/test/{id}/steps` | ❌ 404 on this Cloud plan |
+| Link tests (REST) | `POST /api/v2/testset/{id}/test` | ❌ 404 on this Cloud plan |
 
-**Root cause of steps/linking issue:** Xray Cloud's Test Sets and Test Steps use an internal data model separate from standard Jira issue links. The REST API v1 at the Jira base URL works for Xray Server/DC but has limited support on Cloud. Xray Cloud v2 API (`https://xray.cloud.getxray.app/api/v2/`) requires a **separate Xray API key** (not the regular Jira API token).
+**Important GraphQL mutation names** (others will error):
+- Steps: `addTestStep(issueId: String!, step: CreateStepInput!)` — call once per step, NOT `updateTestSteps`
+- Preconditions: `createPrecondition(...)` then `addPreconditionsToTest(...)`
+- Test Sets: `addTestsToTestSet(issueId: String!, testIssueIds: [String!]!)`
 
-**Next thread should investigate:**
-1. Can the user generate an Xray Cloud API key from their Xray settings?
-2. If yes, add Xray API key storage to the profile and use the v2 endpoints for steps + test set linking
-3. If no, use CSV import as the primary workflow (already working with Test Set column)
+**`issueId` parameter** = Jira numeric ID from `data["id"]` in issue creation response (e.g. `"12345"`), NOT the key (e.g. `APR-80`).
+
+**Pre-Condition issue type** in Jira project not required — `createPrecondition` GraphQL bypasses Jira issue type scheme entirely.
 
 ---
 
@@ -183,18 +195,19 @@ See `DEFECTS.md` for full register. Current open items:
 | ID | Issue | Status |
 |---|---|---|
 | VRD-D013 | README out of date | Open (Low priority) |
-| VRD-D015 | Xray test steps not in Test Details tab | Open — partial fix in place |
-| VRD-D016 | Tests not auto-linked inside Test Set | Open — partial fix in place |
+| VRD-D015 | Xray test steps not in Test Details tab | **Verified ✅ — fixed v1.1.0 (GraphQL `addTestStep`)** |
+| VRD-D016 | Tests not auto-linked inside Test Set | **Verified ✅ — fixed v1.1.0 (GraphQL `addTestsToTestSet`)** |
 
 ---
 
 ## 10. Roadmap / next steps (priority order)
 
-1. **Xray Cloud API v2** — investigate Xray API key to fix steps + Test Set linking (§8)
-2. **Milestone 2 deploy** — Railway Hobby plan (~$5/month), then `git push` to Railway
-3. **S6-2 landing page** — complete marketing content at `/landing`
-4. **Sprint 4 — Licensing** — on-prem licence key system
-5. **Sprint 7 — Regression Pack** — sprint-level TC picker → push as Regression Test Set
+1. **Milestone 2 deploy** — Railway Hobby plan (~$5/month), then `git push` to Railway
+2. **S6-2 landing page** — complete marketing content at `/landing`
+3. **Sprint 4 — Licensing** — on-prem licence key system
+4. **S7-1 Xray test repository view** — `/projects/{key}/tests` listing
+5. **S7-2 Push to Test Execution** — create Test Execution from pushed test
+6. **Sprint 7 — Regression Pack** — sprint-level TC picker → push as Regression Test Set
 
 ---
 
@@ -221,5 +234,8 @@ See `DEFECTS.md` for full register. Current open items:
 - **Are users persisted?** Yes — Sprint 3, DB-backed, `user_repository.py`
 - **Model id?** `claude-sonnet-4-6`
 - **Xray installed?** Yes — confirmed. APR-43 (Test Set) and APR-47 (Test) created this session.
-- **Test steps in Xray?** Currently only in description — Xray Cloud step API not confirmed working yet (see §8)
+- **Test steps in Xray?** ✅ Yes — working via GraphQL `addTestStep` mutation (v1.1.0)
+- **Preconditions in Xray?** ✅ Yes — each precondition is a separate Xray Pre-Condition issue via `createPrecondition` GraphQL
+- **Tests in Test Set?** ✅ Yes — via `addTestsToTestSet` GraphQL — Tests tab populated after Push All
+- **Xray REST API?** ❌ Returns 404 on this Cloud plan — GraphQL only (see §8)
 - **Jira base URL?** ilyaskadri.atlassian.net

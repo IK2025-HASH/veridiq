@@ -92,10 +92,11 @@ Run separately (requires `playwright install chromium`). CI uploads screenshots 
   engine is exercised only up to prompt assembly.
 - **Xray push (mock-Jira)** — VRD-D011 fixed; a mock-Jira pytest case would add
   auto-regression protection for individual test case push and Test Set creation.
-- **Xray step API (VRD-D015)** — `_push_xray_steps` not unit-tested with a mock HTTP
-  client. Should be added alongside the Xray Cloud v2 API implementation (S7-0).
-- **Test Set linking (VRD-D016)** — `add_tests_to_set` not unit-tested. Add alongside
-  S7-0 with mock Xray Cloud v2 responses.
+- **Xray GraphQL step push (VRD-D015 fixed)** — `_push_steps_graphql` and `_push_xray_preconditions`
+  confirmed working against live Xray Cloud (v1.1.0), but no unit test with mock HTTP
+  client exists yet. Add mock-GraphQL pytest cases to protect against regression.
+- **Xray Test Set linking (VRD-D016 fixed)** — `add_tests_to_set` GraphQL path confirmed
+  working (v1.1.0), but no unit test with mock Xray Cloud v2 responses yet.
 - **Auth flows** — register/login/2FA happy-paths beyond setup are not asserted.
 - **Token/id routes** — `/invoices/{id}`, `/auth/reset-password/{token}`, `/join/{token}`
   need fixtures; excluded from smoke for now.
@@ -103,6 +104,8 @@ Run separately (requires `playwright install chromium`). CI uploads screenshots 
   Add login flow + generate page + admin page in next Playwright iteration.
 - **Download format output** — Text/CSV/JSON download logic in `generate_issue.html` is
   client-side JS; not covered by pytest. Browser-level Playwright test needed.
-- **Inline card edit** — JS-only; not covered. Playwright test needed.
+- **Inline card edit + precondition inputs** — JS-only; not covered. Playwright test needed.
+- **Issue naming prefixes** — `ITEM_PREFIX` logic in `generate_issue.html` is client-side;
+  needs a Playwright test asserting TC-N / PC-N / TS: prefixes appear in push payloads.
 
 New fixes should add a test here so the defect moves to **Verified** in `DEFECTS.md`.
