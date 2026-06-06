@@ -405,8 +405,8 @@ class JiraClient:
 
         # Xray Cloud processes new Test issues asynchronously.  A test pushed
         # milliseconds after creation may return 404 because Xray hasn't
-        # registered it yet.  Retry up to 3 times with increasing delays.
-        delays = [0, 3, 6]
+        # registered it yet.  Retry up to 4 times with increasing delays.
+        delays = [0, 5, 15, 30]
         for attempt, delay in enumerate(delays, 1):
             if delay:
                 logger.info(f"Xray v2 steps retry {attempt}/3 for {issue_key} (waiting {delay}s)")
