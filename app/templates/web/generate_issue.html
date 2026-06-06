@@ -216,9 +216,9 @@ const ITEM_PATTERNS = {
 // Short prefix badge per type
 const ITEM_PREFIX = {
   'TEST_CASES':          'TC',
-  'BDD_SCENARIOS':       'SC',
-  'NEGATIVE_TEST_CASES': 'NT',
-  'EXPLORATORY_CHARTER': 'CH',
+  'BDD_SCENARIOS':       'BDD',
+  'NEGATIVE_TEST_CASES': 'NTC',
+  'EXPLORATORY_CHARTER': 'EC',
 };
 
 // Turn any FastAPI / HTTP error response into a readable string.
@@ -775,7 +775,7 @@ async function pushAllCards() {
     msgEl.className   = 'text-xs text-slate-400';
     try {
       const label = document.querySelector(`.type-btn[data-key="${selectedType}"]`)?.querySelector('span:last-child')?.textContent || selectedType;
-      const setTitle = `${label}: ${issueData?.summary || ISSUE_KEY}`.slice(0, 200);
+      const setTitle = `TS: ${issueData?.summary || ISSUE_KEY}`.slice(0, 200);
       const r = await fetch('/api/jira/push-test-set', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},

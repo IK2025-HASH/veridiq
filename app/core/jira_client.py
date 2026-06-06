@@ -500,7 +500,7 @@ class JiraClient:
                 ),
                 "variables": {
                     "def": p,
-                    "summary": p[:255],
+                    "summary": f"PC-{i+1}: {p}"[:255],
                     "proj": project_key,
                 },
             }
